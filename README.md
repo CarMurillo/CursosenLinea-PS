@@ -17,12 +17,11 @@ Un Sistema de Gestión de Aprendizaje (LMS — Learning Management System) de nu
 •	Ofrecer una experiencia de aprendizaje personalizada mediante recomendaciones adaptativas.
 •	Monetizar contenido a través de cursos premium con pasarela de pagos.
 La diferencia de un LMS tradicional, este proyecto busca demostrar dominio de arquitectura de software profesional: separación de responsabilidades, bajo acoplamiento, alta cohesión, trazabilidad de decisiones de diseño, calidad de código verificable y operación observable en producción (logging/monitoreo).
-3. Objetivos
+
+4. Objetivos
+   
 Objetivo general
 Diseñar y desarrollar una plataforma de gestión de cursos en línea aplicando una arquitectura basada en microservicios/hexagonal, patrones de diseño GoF, pruebas automatizadas, CI/CD, control de versiones y observabilidad del sistema.
-
-
-
 
 
 Objetivos específicos

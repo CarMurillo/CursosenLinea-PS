@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentCourses from "./pages/student/StudentCourses";
+import StudentMyCourses from "./pages/student/StudentMyCourses";
 
 import InstructorDashboard from "./pages/instructor/InstructorDashboard";
 import CreateCourse from "./pages/instructor/CreateCourse";
@@ -74,6 +75,15 @@ const App = () => {
                         element={
                             <ProtectedRoute role="student">
                                 <StudentCourses />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/student/my-courses"
+                        element={
+                            <ProtectedRoute role="student">
+                                <StudentMyCourses /> {/* o <StudentCourses /> mientras la creas */}
                             </ProtectedRoute>
                         }
                     />

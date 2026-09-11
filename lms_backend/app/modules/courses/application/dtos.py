@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,3 +12,11 @@ class CourseCreateDTO(BaseModel):
 
 class EnrollmentDTO(BaseModel):
     student_name: str
+
+
+class CloneCourseDTO(BaseModel):
+    """
+    Datos opcionales para personalizar el curso clonado.
+    """
+
+    new_title: Optional[str] = None

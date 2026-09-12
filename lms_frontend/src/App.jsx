@@ -18,6 +18,7 @@ import StudentMyCourses from "./pages/student/StudentMyCourses";
 
 import InstructorDashboard from "./pages/instructor/InstructorDashboard";
 import CreateCourse from "./pages/instructor/CreateCourse";
+import ManageCourses from "./pages/instructor/ManageCourses";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
@@ -104,6 +105,15 @@ const App = () => {
                         element={
                             <ProtectedRoute role="instructor">
                                 <CreateCourse />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/instructor/courses"
+                        element={
+                            <ProtectedRoute role="instructor">
+                                <ManageCourses />
                             </ProtectedRoute>
                         }
                     />

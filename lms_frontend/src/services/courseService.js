@@ -20,3 +20,15 @@ export const enrollCourse = async (courseId, studentName) => {
 
     return response.data;
 };
+
+// Prototype: clonar un curso existente
+export const cloneCourse = async (courseId, newTitle = "") => {
+    const response = await api.post(
+        `/courses/${courseId}/clone`,
+        {
+            new_title: newTitle || null,
+        }
+    );
+
+    return response.data;
+};

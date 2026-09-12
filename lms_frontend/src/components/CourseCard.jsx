@@ -1,7 +1,9 @@
 const CourseCard = ({
     course,
     onEnroll,
-    showEnroll = false
+    onClone,
+    showEnroll = false,
+    showClone = false
 }) => {
 
     return (
@@ -16,7 +18,7 @@ const CourseCard = ({
             </p>
 
             <p>
-                Tipo: {course.course_type}
+                Tipo: {course.type || course.course_type}
             </p>
 
             <p>
@@ -28,6 +30,14 @@ const CourseCard = ({
                     onClick={() => onEnroll(course)}
                 >
                     Inscribirme
+                </button>
+            )}
+
+            {showClone && (
+                <button
+                    onClick={() => onClone(course)}
+                >
+                    Clonar curso
                 </button>
             )}
 

@@ -1,111 +1,76 @@
 """
-Módulo: Courses - Capa de Dominio (Domain)
-Patrón de Diseño: Builder (Creacional)
+Patrón de Diseño: Builder
+
+Construye progresivamente un curso del LMS y utiliza el Factory Method
+para crear el tipo concreto de curso.
 """
 
-from typing import List, Optional
-from dataclasses import dataclass, field
 import uuid
+from typing import Optional
 
-
-@dataclass
-class Lesson:
-    id: str
-    title: str
-    content: str
-    duration_minutes: int
-
-
-@dataclass
-class Module:
-    id: str
-    title: str
-    lessons: List[Lesson] = field(default_factory=list)
-
-
-@dataclass
-class Course:
-    id: str
-    title: str
-    description: str
-    instructor_id: str
-    category: str
-    price: float
-    is_published: bool
-    modules: List[Module] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+from app.modules.courses.domain.models import Course, CourseFactory
 
 
 class CourseBuilder:
     """
-    Builder concreto para construir instancias válidas de Course.
-    Cumple con SRP al separar la construcción de la entidad.
+    Builder para construir cursos del LMS paso a paso.
+
+    El Builder se encarga de preparar los datos del curso.
+    El Factory Method se encarga de decidir qué tipo concreto crear.
     """
 
-    def __init__(self, title: str, instructor_id: str):
-        self._id: str = str(uuid.uuid4())
-        self._title: str = title
-        self._instructor_id: str = instructor_id
-        self._description: str = ""
-        self._category: str = "General"
+    def __init__(self):
+        self._course_id: str = str(uuid.uuid4())
+        self._title: Optional[str] = None
+        self._instructor: Optional[str] = None
         self._price: float = 0.0
-        self._is_published: bool = False
-        self._modules: List[Module] = []
-        self._tags: List[str] = []
+        self._course_type: str = "video"
 
-    def set_description(self, description: str) -> 'CourseBuilder':
-        self._description = description
+    def set_title(self, title: str) -> "CourseBuilder":
+        if not title or not title.strip():
+            raise ValueError("El título del curso no puede estar vacío.")
+
+        self._title = title.strip()
         return self
 
-    def set_category(self, category: str) -> 'CourseBuilder':
-        self._category = category
+    def set_instructor(self, instructor: str) -> "CourseBuilder":
+        if not instructor or not instructor.strip():
+            raise ValueError("El instructor es obligatorio.")
+
+        self._instructor = instructor.strip()
         return self
 
-    def set_price(self, price: float) -> 'CourseBuilder':
+    def set_price(self, price: float) -> "CourseBuilder":
         if price < 0:
             raise ValueError("El precio no puede ser negativo.")
+
         self._price = price
         return self
 
-    def set_published(self, is_published: bool) -> 'CourseBuilder':
-        self._is_published = is_published
-        return self
+    def set_course_type(self, course_type: str) -> "CourseBuilder":
+        if course_type not in ("video", "live"):
+            raise ValueError(
+                "El tipo de curso debe ser 'video' o 'live'."
+            )
 
-    def add_tag(self, tag: str) -> 'CourseBuilder':
-        if tag not in self._tags:
-            self._tags.append(tag)
-        return self
-
-    def add_module(self, title: str, lessons: Optional[List[dict]] = None) -> 'CourseBuilder':
-        module_id = str(uuid.uuid4())
-        module_lessons = []
-        if lessons:
-            for l in lessons:
-                lesson_obj = Lesson(
-                    id=str(uuid.uuid4()),
-                    title=l.get("title", "Lección sin título"),
-                    content=l.get("content", ""),
-                    duration_minutes=l.get("duration_minutes", 0)
-                )
-                module_lessons.append(lesson_obj)
-        
-        new_module = Module(id=module_id, title=title, lessons=module_lessons)
-        self._modules.append(new_module)
+        self._course_type = course_type
         return self
 
     def build(self) -> Course:
-        """Valida y retorna la instancia final de Course."""
-        if not self._title.strip():
-            raise ValueError("El título del curso no puede estar vacío.")
-        
-        return Course(
-            id=self._id,
+        """
+        Construye el curso utilizando el Factory Method.
+        """
+
+        if not self._title:
+            raise ValueError("El título es obligatorio.")
+
+        if not self._instructor:
+            raise ValueError("El instructor es obligatorio.")
+
+        return CourseFactory.create_course(
+            course_type=self._course_type,
+            course_id=self._course_id,
             title=self._title,
-            description=self._description,
-            instructor_id=self._instructor_id,
-            category=self._category,
+            instructor=self._instructor,
             price=self._price,
-            is_published=self._is_published,
-            modules=self._modules,
-            tags=self._tags
         )

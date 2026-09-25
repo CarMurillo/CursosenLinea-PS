@@ -1,0 +1,500 @@
+GUIA DE PRUEBAS - PATRONES DE DISENO GoF
+LMS - Plataforma de Cursos en Linea
+
+Patrones implementados:
+1. Singleton
+2. Factory Method
+3. Abstract Factory
+4. Builder
+5. Prototype
+
+OBJETIVO
+Esta guia permite al docente ejecutar y verificar paso a paso las pruebas de los cinco patrones creacionales implementados en el backend del proyecto LMS.
+
+============================================================
+1. REQUISITOS PREVIOS
+============================================================
+
+- Tener Python instalado.
+- Tener el proyecto LMS descargado o clonado.
+- Abrir Visual Studio Code o PowerShell.
+- Ubicarse en la carpeta del backend:
+
+    cd C:\Users\muril\Desktop\LMS\LMS\lms_backend
+
+NOTA: Si el proyecto esta en otra ubicacion, utilizar la ruta local correspondiente.
+
+============================================================
+2. ACTIVAR EL ENTORNO VIRTUAL
+============================================================
+
+Ejecutar:
+
+    .\venv\Scripts\Activate.ps1
+
+Si se activa correctamente, aparecera "(venv)" al inicio de la linea.
+
+============================================================
+3. INSTALAR DEPENDENCIAS
+============================================================
+
+Ejecutar:
+
+    pip install -r requirements.txt
+
+============================================================
+4. EJECUTAR LAS PRUEBAS AUTOMATICAS
+============================================================
+
+Desde la carpeta lms_backend ejecutar:
+
+    python -m pytest -v
+
+El parametro "-v" muestra el nombre de cada prueba y su resultado.
+
+Resultado esperado:
+
+    PASSED
+
+para las pruebas que se ejecuten correctamente.
+
+============================================================
+5. EJECUTAR EL BACKEND
+============================================================
+
+Abrir una segunda terminal.
+
+Entrar al backend:
+
+    cd C:\Users\muril\Desktop\LMS\LMS\lms_backend
+
+Activar el entorno:
+
+    .\venv\Scripts\Activate.ps1
+
+Ejecutar FastAPI:
+
+    python -m uvicorn app.main:app --reload
+
+Backend:
+
+    http://127.0.0.1:8000
+
+Swagger:
+
+    http://127.0.0.1:8000/docs
+
+============================================================
+6. PRUEBA DEL PATRON SINGLETON
+============================================================
+
+Archivo principal:
+
+    app/shared/infrastructure/config/system_config.py
+
+OBJETIVO:
+Comprobar que Singleton permite tener una unica instancia compartida de la configuracion.
+
+PASOS:
+
+1. Abrir una terminal.
+2. Ubicarse en lms_backend.
+3. Activar el entorno virtual.
+4. Ejecutar:
+
+    python
+
+5. Importar la clase:
+
+    from app.shared.infrastructure.config.system_config import SystemConfig
+
+6. Crear dos referencias:
+
+    config1 = SystemConfig()
+    config2 = SystemConfig()
+
+7. Comprobar:
+
+    config1 is config2
+
+RESULTADO ESPERADO:
+
+    True
+
+Esto demuestra que ambas referencias corresponden a la misma instancia.
+
+Salir de Python:
+
+    exit()
+
+============================================================
+7. PRUEBA DEL PATRON FACTORY METHOD
+============================================================
+
+Archivo principal:
+
+    app/modules/courses/domain/models.py
+
+OBJETIVO:
+Comprobar que Factory Method permite crear diferentes tipos de cursos sin instanciar directamente las clases concretas desde el cliente.
+
+PASOS:
+
+1. Abrir:
+
+    http://127.0.0.1:8000/docs
+
+2. Buscar:
+
+    POST /courses/
+
+3. Seleccionar "Try it out".
+
+4. Crear un curso de tipo video:
+
+    {
+      "title": "Curso de Python",
+      "instructor": "Docente",
+      "price": 50000,
+      "course_type": "video"
+    }
+
+5. Ejecutar "Execute".
+
+RESULTADO ESPERADO:
+
+    "type": "Video bajo demanda"
+
+6. Repetir la prueba con:
+
+    {
+      "title": "Clase de Arquitectura",
+      "instructor": "Docente",
+      "price": 80000,
+      "course_type": "live"
+    }
+
+RESULTADO ESPERADO:
+
+    "type": "Clase en Vivo (Videoconferencia)"
+
+La fabrica selecciona el producto concreto:
+
+    video -> VideoCourse
+    live  -> LiveClassCourse
+
+============================================================
+8. PRUEBA DEL PATRON ABSTRACT FACTORY
+============================================================
+
+Archivo principal:
+
+    app/modules/auth/domain/factories.py
+
+OBJETIVO:
+Comprobar que Abstract Factory permite crear diferentes tipos de usuarios del LMS mediante fabricas especializadas.
+
+PASOS:
+
+1. Abrir:
+
+    http://127.0.0.1:8000/docs
+
+2. Buscar:
+
+    POST /auth/register
+
+3. Seleccionar "Try it out".
+
+4. Registrar un estudiante usando los campos que muestre Swagger. Ejemplo:
+
+    {
+      "email": "estudiante.prueba@lms.com",
+      "password": "123456",
+      "role": "student"
+    }
+
+5. Ejecutar.
+
+6. Repetir con instructor:
+
+    {
+      "email": "instructor.prueba@lms.com",
+      "password": "123456",
+      "role": "instructor"
+    }
+
+7. Si el endpoint permite administrador, repetir con:
+
+    "role": "admin"
+
+RESULTADO ESPERADO:
+El sistema crea el usuario correspondiente al rol seleccionado.
+
+Las fabricas implementadas son:
+
+    UserFactory
+    StudentFactory
+    InstructorFactory
+    AdminFactory
+
+NOTA:
+Los nombres exactos de los campos deben verificarse en Swagger, ya que corresponden al DTO actual del proyecto.
+
+============================================================
+9. PRUEBA DEL PATRON BUILDER
+============================================================
+
+Archivo principal:
+
+    app/modules/courses/domain/builder.py
+
+OBJETIVO:
+Comprobar que Builder construye un objeto Course paso a paso y valida sus datos antes de crear el objeto final.
+
+PRUEBA PRINCIPAL:
+
+1. Abrir:
+
+    http://127.0.0.1:8000/docs
+
+2. Buscar:
+
+    POST /courses/
+
+3. Seleccionar "Try it out".
+
+4. Enviar:
+
+    {
+      "title": "Patrones de Diseño GoF",
+      "instructor": "Docente LMS",
+      "price": 60000,
+      "course_type": "video"
+    }
+
+5. Ejecutar.
+
+RESULTADO ESPERADO:
+El curso se crea correctamente.
+
+Flujo interno:
+
+    CourseBuilder()
+        |
+        +-- set_title()
+        |
+        +-- set_instructor()
+        |
+        +-- set_price()
+        |
+        +-- set_course_type()
+        |
+        +-- build()
+        |
+        +-- CourseFactory
+        |
+        +-- VideoCourse / LiveClassCourse
+
+PRUEBA DE VALIDACION:
+
+Intentar crear:
+
+    {
+      "title": "Curso de prueba",
+      "instructor": "Docente",
+      "price": -1000,
+      "course_type": "video"
+    }
+
+RESULTADO ESPERADO:
+La API rechaza la solicitud porque el precio no puede ser negativo.
+
+============================================================
+10. PRUEBA DEL PATRON PROTOTYPE
+============================================================
+
+Archivos principales:
+
+    app/modules/courses/domain/models.py
+    app/modules/courses/application/use_cases.py
+    app/modules/courses/infrastructure/api.py
+
+OBJETIVO:
+Comprobar que Prototype crea un nuevo curso clonando uno existente.
+
+PASO 1 - CREAR CURSO ORIGINAL
+
+1. Abrir:
+
+    http://127.0.0.1:8000/docs
+
+2. Buscar:
+
+    POST /courses/
+
+3. Crear:
+
+    {
+      "title": "Patrones GoF",
+      "instructor": "Docente",
+      "price": 50000,
+      "course_type": "video"
+    }
+
+4. Ejecutar.
+5. Copiar el valor del campo "id".
+
+PASO 2 - CLONAR
+
+1. Buscar:
+
+    POST /courses/{course_id}/clone
+
+2. Seleccionar "Try it out".
+3. En course_id pegar el ID del curso original.
+4. Enviar:
+
+    {
+      "new_title": "Patrones GoF - Copia"
+    }
+
+5. Ejecutar.
+
+RESULTADO ESPERADO:
+
+Curso original:
+    ID: 1111...
+    Titulo: Patrones GoF
+
+Curso clonado:
+    ID: 2222...
+    Titulo: Patrones GoF - Copia
+
+Los IDs deben ser diferentes.
+
+El clon conserva:
+- instructor
+- precio
+- tipo de curso
+
+El clon inicia sin estudiantes inscritos.
+
+El metodo:
+
+    clone()
+
+realiza una copia profunda mediante deepcopy y genera un nuevo UUID.
+
+============================================================
+11. PRUEBA COMPLETA PARA LA DEMOSTRACION AL DOCENTE
+============================================================
+
+Se recomienda realizar la demostracion en este orden:
+
+1. Activar entorno:
+
+    .\venv\Scripts\Activate.ps1
+
+2. Ejecutar pruebas automaticas:
+
+    python -m pytest -v
+
+3. Ejecutar backend:
+
+    python -m uvicorn app.main:app --reload
+
+4. Abrir Swagger:
+
+    http://127.0.0.1:8000/docs
+
+5. Singleton:
+   Ejecutar en Python:
+
+    config1 = SystemConfig()
+    config2 = SystemConfig()
+    config1 is config2
+
+   Resultado esperado: True.
+
+6. Abstract Factory:
+   Ejecutar POST /auth/register con diferentes roles.
+
+7. Factory Method:
+   Ejecutar POST /courses/ con course_type "video" y luego "live".
+
+8. Builder:
+   Crear un curso correctamente y realizar una prueba con precio negativo.
+
+9. Prototype:
+   Crear un curso, copiar su ID y utilizar POST /courses/{course_id}/clone.
+
+============================================================
+12. COMANDOS RESUMIDOS
+============================================================
+
+    cd C:\Users\muril\Desktop\LMS\LMS\lms_backend
+
+    .\venv\Scripts\Activate.ps1
+
+    pip install -r requirements.txt
+
+    python -m pytest -v
+
+    python -m uvicorn app.main:app --reload
+
+Swagger:
+
+    http://127.0.0.1:8000/docs
+
+============================================================
+13. EVIDENCIAS RECOMENDADAS
+============================================================
+
+Tomar capturas de:
+
+1. Terminal con:
+
+    python -m pytest -v
+
+2. Singleton mostrando:
+
+    config1 is config2
+    True
+
+3. Swagger creando un usuario mediante /auth/register.
+
+4. Swagger creando un VideoCourse.
+
+5. Swagger creando un LiveClassCourse.
+
+6. Swagger clonando un curso mediante:
+
+    POST /courses/{course_id}/clone
+
+7. Resultado donde el curso original y el clon tengan IDs diferentes.
+
+============================================================
+14. ARCHIVOS PRINCIPALES DE CADA PATRON
+============================================================
+
+SINGLETON
+    app/shared/infrastructure/config/system_config.py
+
+FACTORY METHOD
+    app/modules/courses/domain/models.py
+
+ABSTRACT FACTORY
+    app/modules/auth/domain/factories.py
+
+BUILDER
+    app/modules/courses/domain/builder.py
+
+PROTOTYPE
+    app/modules/courses/domain/models.py
+    app/modules/courses/application/use_cases.py
+    app/modules/courses/infrastructure/api.py
+
+============================================================
+FIN DE LA GUIA
+============================================================

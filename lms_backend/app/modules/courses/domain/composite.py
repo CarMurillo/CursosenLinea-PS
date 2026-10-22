@@ -1,3 +1,4 @@
+
 from app.modules.courses.domain.content_component import (
     ContentComponent
 )

@@ -23,6 +23,10 @@ import ManageCourses from "./pages/instructor/ManageCourses";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
 
+import CourseContent from "./pages/student/CourseContent";
+
+import ManageConten from "./pages/instructor/ManageContent";
+
 const Unauthorized = () => {
     return (
         <div>
@@ -160,6 +164,24 @@ const App = () => {
                         }
                     />
 
+                    <Route
+                        path="/student/course/:courseId/content"
+                        element={
+                            <ProtectedRoute role="student">
+                                <CourseContent />
+                            </ProtectedRoute>
+                        }
+                    />
+
+
+                    <Route
+                        path="/instructor/course/:courseId/content"
+                        element={
+                            <ProtectedRoute role="instructor">
+                                <ManageContent />
+                            </ProtectedRoute>
+                        }
+                    />
                 </Routes>
 
             </AuthProvider>

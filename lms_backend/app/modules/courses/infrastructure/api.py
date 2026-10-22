@@ -4,6 +4,7 @@ from app.modules.courses.application.dtos import (
     CloneCourseDTO,
     CourseCreateDTO,
     EnrollmentDTO,
+    LessonCreateDTO,
 )
 
 from app.modules.courses.application.use_cases import (
@@ -16,6 +17,13 @@ from app.modules.courses.application.use_cases import (
 
 from app.modules.courses.infrastructure.repository import (
     course_repository,
+)
+
+from app.modules.courses.domain.bridge import (
+    InteractiveQuizLesson,
+    S3StorageProvider,
+    VimeoStorageProvider,
+    VideoLesson,
 )
 
 
@@ -137,4 +145,77 @@ def enroll_student(
             f"'{course.title}'."
         ),
         "course": course.get_details(),
+    }
+
+@router.post(
+    "/{course_id}/content/lessons",
+    status_code=201
+)
+def add_lesson(
+    course_id: str,
+    dto: LessonCreateDTO
+):
+
+    course = course_repository.get_by_id(
+        course_id
+    )
+
+    if not course:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Curso no encontrado"
+        )
+
+
+    providers = {
+
+        "vimeo":
+            VimeoStorageProvider(),
+
+        "s3":
+            S3StorageProvider(),
+
+    }
+
+
+    provider = providers[
+        dto.provider
+    ]
+
+
+    if dto.lesson_type == "video":
+
+        lesson = VideoLesson(
+            dto.title,
+            dto.media_id,
+            provider
+        )
+
+    else:
+
+        lesson = InteractiveQuizLesson(
+            dto.title,
+            dto.media_id,
+            provider
+        )
+
+
+    course.content.add_lesson(
+        dto.module_title,
+        lesson
+    )
+
+
+    return {
+
+        "message":
+            "Lección agregada correctamente",
+
+        "course_id":
+            course.course_id,
+
+        "content":
+            course.content.to_dict(),
+
     }

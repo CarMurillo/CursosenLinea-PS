@@ -4,10 +4,9 @@ import Navbar from "../../components/Navbar";
 import Sidebar from "../../components/Sidebar";
 import CourseCard from "../../components/CourseCard";
 
-import {
-    getCourses,
-    cloneCourse
-} from "../../services/courseService";
+import {getCourses, cloneCourse} from "../../services/courseService";
+
+import { useNavigate } from "react-router-dom";
 
 
 const ManageCourses = () => {
@@ -15,6 +14,7 @@ const ManageCourses = () => {
     const [courses, setCourses] = useState([]);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
+    const navigate = useNavigate();
 
     useEffect(() => {
 
@@ -135,7 +135,13 @@ const ManageCourses = () => {
                                     key={course.id}
                                     course={course}
                                     showClone={true}
+                                    showContent={true}
                                     onClone={handleClone}
+                                    onContent={(course) =>
+                                        navigate(
+                                            `/instructor/course/${course.id}/content`
+                                        )
+                                    }
                                 />
 
                             ))

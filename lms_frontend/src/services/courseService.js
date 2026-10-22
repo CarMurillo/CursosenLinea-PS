@@ -32,3 +32,28 @@ export const cloneCourse = async (courseId, newTitle = "") => {
 
     return response.data;
 };
+
+export const getCourseContent = async (
+    courseId
+) => {
+
+    const response = await api.get(
+        `/courses/${courseId}/content`
+    );
+
+    return response.data;
+};
+
+
+export const addLesson = async (
+    courseId,
+    lessonData
+) => {
+
+    const response = await api.post(
+        `/courses/${courseId}/content/lessons`,
+        lessonData
+    );
+
+    return response.data;
+};

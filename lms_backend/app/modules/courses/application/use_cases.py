@@ -19,6 +19,11 @@ from app.modules.courses.domain.observer import (
 )
 from app.modules.courses.domain.ports import CourseRepository
 
+from app.modules.courses.domain.decorator import (
+    CertificateCourseDecorator,
+    PremiumCourseDecorator,
+)
+
 
 class CourseNotFoundError(Exception):
     pass
@@ -71,26 +76,38 @@ class CloneCourseUseCase:
 
     def execute(
         self,
-        course_id: str,
-        new_title: str | None = None
-    ) -> Course:
+        dto: CourseCreateDTO
+    )-> Course:
 
-        original_course = self.repository.get_by_id(course_id)
+        cloned_course = (
+            CourseBuilder()
+            .set_title(dto.title)
+            .set_instructor(dto.instructor)
+            .set_price(dto.price)
+            .set_course_type(dto.course_type)
+            .build()
+        )
 
-        if not original_course:
-            raise CourseNotFoundError(course_id)
-
-        # Prototype
-        cloned_course = original_course.clone()
-
-        if new_title and new_title.strip():
-            cloned_course.title = new_title.strip()
-        else:
-            cloned_course.title = (
-                f"{original_course.title} (Copia)"
+        # Validación agregada para el título del contenido
+        if hasattr(cloned_course, "content"):
+            cloned_course.content.title = (
+                f"Contenido de {cloned_course.title}"
             )
 
-        return self.repository.save(cloned_course)
+        # DECORATOR
+        if dto.premium:
+            cloned_course = PremiumCourseDecorator(
+                cloned_course
+            )
+
+        if dto.certificate:
+            cloned_course = CertificateCourseDecorator(
+                cloned_course
+            )
+
+        return self.repository.save(
+            cloned_course
+        )
 
 
 # ============================================================

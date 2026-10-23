@@ -182,6 +182,15 @@ const App = () => {
                             </ProtectedRoute>
                         }
                     />
+
+                    <Route
+                        path="/instructor/patterns"
+                        element={
+                            <ProtectedRoute role="instructor">
+                                <PatternLab />
+                            </ProtectedRoute>
+                        }
+                    />
                 </Routes>
 
             </AuthProvider>

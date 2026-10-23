@@ -57,3 +57,14 @@ export const addLesson = async (
 
     return response.data;
 };
+
+// Proxy: comprobar el acceso al contenido de demostración.
+export const getDemoContentAccess = async (hasAccess = false) => {
+    const response = await api.get("/courses/demo-content-access", {
+        params: {
+            premium: true,
+            has_access: hasAccess
+        }
+    });
+    return response.data;
+};

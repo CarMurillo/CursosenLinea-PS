@@ -56,6 +56,13 @@ class PublishCourseUseCase:
             .build()
         )
 
+        # DECORATOR: características opcionales
+        if dto.premium:
+            course = PremiumCourseDecorator(course)
+
+        if dto.certificate:
+            course = CertificateCourseDecorator(course)
+
         return self.repository.save(course)
 
 
@@ -76,38 +83,26 @@ class CloneCourseUseCase:
 
     def execute(
         self,
-        dto: CourseCreateDTO
-    )-> Course:
+        course_id: str,
+        new_title: str | None = None
+    ) -> Course:
 
-        cloned_course = (
-            CourseBuilder()
-            .set_title(dto.title)
-            .set_instructor(dto.instructor)
-            .set_price(dto.price)
-            .set_course_type(dto.course_type)
-            .build()
-        )
+        original_course = self.repository.get_by_id(course_id)
 
-        # Validación agregada para el título del contenido
-        if hasattr(cloned_course, "content"):
-            cloned_course.content.title = (
-                f"Contenido de {cloned_course.title}"
+        if not original_course:
+            raise CourseNotFoundError(course_id)
+
+        # Prototype
+        cloned_course = original_course.clone()
+
+        if new_title and new_title.strip():
+            cloned_course.title = new_title.strip()
+        else:
+            cloned_course.title = (
+                f"{original_course.title} (Copia)"
             )
 
-        # DECORATOR
-        if dto.premium:
-            cloned_course = PremiumCourseDecorator(
-                cloned_course
-            )
-
-        if dto.certificate:
-            cloned_course = CertificateCourseDecorator(
-                cloned_course
-            )
-
-        return self.repository.save(
-            cloned_course
-        )
+        return self.repository.save(cloned_course)
 
 
 # ============================================================

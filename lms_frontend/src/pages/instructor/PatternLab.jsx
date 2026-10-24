@@ -1,28 +1,52 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Sidebar from "../../components/Sidebar";
-import { getDemoContentAccess } from "../../services/courseService";
+import {
+    getCourses,
+    getCourseContent,
+    getContentMetadata
+} from "../../services/courseService";
 
-const contentTypes = [
-    { type: "video", label: "Video", icon: "play-circle" },
-    { type: "quiz", label: "Cuestionario", icon: "clipboard-check" },
-    { type: "document", label: "Documento", icon: "file-text" }
-];
+const CONTENT_TYPES = ["video", "quiz", "document"];
 
 export default function PatternLab() {
+    const [courses, setCourses] = useState([]);
     const [result, setResult] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [metadata, setMetadata] = useState([]);
 
-    const checkAccess = async (hasAccess) => {
+    useEffect(() => {
+        const load = async () => {
+            try {
+                setCourses(await getCourses());
+            } catch (err) {
+                console.error(err);
+            }
+
+            try {
+                // Flyweight: los datos vienen de la fábrica del backend.
+                setMetadata(
+                    await Promise.all(CONTENT_TYPES.map(getContentMetadata))
+                );
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        load();
+    }, []);
+
+    // Proxy: el backend decide con el token del usuario autenticado.
+    const checkAccess = async (course) => {
         setLoading(true);
         setError("");
         setResult(null);
 
         try {
-            const data = await getDemoContentAccess(hasAccess);
-            setResult(data);
+            const data = await getCourseContent(course.id);
+            setResult({ course: course.title, content: data });
         } catch (err) {
             setError(
                 err.response?.data?.detail ||
@@ -46,35 +70,33 @@ export default function PatternLab() {
                     <section>
                         <h2>Proxy: control de acceso</h2>
                         <p>
-                            Comprueba cómo el proxy bloquea o permite
-                            el acceso al contenido Premium de demostración.
+                            El acceso al contenido de un curso Premium lo
+                            decide el proxy en el backend según el usuario
+                            autenticado y su inscripción. Elige un curso:
                         </p>
 
-                        <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => checkAccess(false)}
-                        >
-                            Probar sin acceso
-                        </button>
+                        {courses.length === 0 && <p>No hay cursos creados.</p>}
 
-                        <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => checkAccess(true)}
-                        >
-                            Probar con acceso
-                        </button>
+                        {courses.map((course) => (
+                            <button
+                                key={course.id}
+                                type="button"
+                                disabled={loading}
+                                onClick={() => checkAccess(course)}
+                            >
+                                {course.title}
+                                {course.premium ? " (Premium)" : ""}
+                            </button>
+                        ))}
 
                         {loading && <p>Consultando...</p>}
                         {error && <p className="error">{error}</p>}
 
                         {result && (
                             <div>
-                                <h3>Contenido permitido</h3>
-                                <p>{result.title}</p>
+                                <h3>Acceso permitido: {result.course}</h3>
                                 <p>
-                                    Recurso: {result.resource_url}
+                                    Módulos: {result.content.items?.length ?? 0}
                                 </p>
                             </div>
                         )}
@@ -85,18 +107,18 @@ export default function PatternLab() {
                     <section>
                         <h2>Flyweight: tipos de contenido</h2>
                         <p>
-                            Los metadatos comunes se reutilizan en el
-                            backend para evitar duplicar objetos iguales.
+                            Todas las lecciones del mismo tipo comparten un
+                            único objeto de metadatos en el backend.
                         </p>
 
                         <div className="course-grid">
-                            {contentTypes.map((item) => (
+                            {metadata.map((item) => (
                                 <article
                                     className="course-card"
-                                    key={item.type}
+                                    key={item.content_type}
                                 >
                                     <h3>{item.label}</h3>
-                                    <p>Tipo: {item.type}</p>
+                                    <p>Tipo: {item.content_type}</p>
                                     <p>Icono: {item.icon}</p>
                                 </article>
                             ))}
@@ -108,13 +130,10 @@ export default function PatternLab() {
                     <section>
                         <h2>Facade: operaciones centralizadas</h2>
                         <p>
-                            La gestión de cursos utiliza una fachada
-                            en el backend para listar, crear, clonar
-                            e inscribir estudiantes.
-                        </p>
-                        <p>
-                            Puedes verificar su funcionamiento desde
-                            la sección de gestión de cursos existente.
+                            La gestión de cursos utiliza una fachada en el
+                            backend para listar, crear, clonar e inscribir
+                            estudiantes. Puedes verificarlo desde la sección
+                            de gestión de cursos.
                         </p>
                     </section>
                 </main>

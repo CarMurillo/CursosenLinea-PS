@@ -1,7 +1,10 @@
+
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import List
 import uuid
+
+from app.modules.courses.domain.composite import CourseContent
 
 
 # ============================================================
@@ -22,6 +25,7 @@ class Course(ABC):
         self.instructor = instructor
         self.price = price
         self.enrolled_students: List[str] = []
+        self.content = CourseContent(title)
 
     # ========================================================
     # PATRÓN PROTOTYPE

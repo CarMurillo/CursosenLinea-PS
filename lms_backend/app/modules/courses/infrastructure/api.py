@@ -1,5 +1,6 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy.orm import Session
 
 from app.modules.courses.application.dtos import (
     CloneCourseDTO,
@@ -27,14 +28,34 @@ from app.modules.courses.domain.bridge import (
 )
 
 from app.modules.courses.domain.content_proxy import (
-    CourseContentResource,
-    PremiumContentProxy,
+    ContentAccessDenied,
+    EnrolledStudentPolicy,
+    ProtectedContentProxy,
 )
+
+from app.modules.auth.infrastructure.security import resolve_token
+from app.modules.courses.infrastructure.repository import course_repository
+from app.shared.infrastructure.database import get_db
+from app.shared.infrastructure.user_repository import SqlAlchemyUserRepository
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
-# FACADE: centraliza las operaciones principales de cursos.
-facade = CourseFacade()
+def get_current_user(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Resuelve el usuario a partir de 'Authorization: Bearer <token>'."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="No autenticado")
+    user_id = resolve_token(authorization[7:].strip())
+    user = SqlAlchemyUserRepository(db).get_by_id(user_id) if user_id else None
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sesión no válida")
+    return user
+
+
+# FACADE: la infraestructura (composition root) inyecta el adaptador.
+facade = CourseFacade(course_repository)
 
 
 # ============================================================
@@ -120,9 +141,9 @@ def enroll_student(course_id: str, dto: EnrollmentDTO):
     status_code=201,
 )
 def add_lesson(course_id: str, dto: LessonCreateDTO):
-    course = facade.repository.get_by_id(course_id)
-
-    if not course:
+    try:
+        course = facade.get_course(course_id)
+    except CourseNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Curso no encontrado",
@@ -177,32 +198,36 @@ def add_lesson(course_id: str, dto: LessonCreateDTO):
 
 
 # ============================================================
-# PROXY: DEMOSTRACIÓN DE CONTROL DE ACCESO A CONTENIDO PREMIUM
+# PROXY: CONTENIDO PROTEGIDO DEL CURSO
 # ============================================================
 
-@router.get("/demo-content-access")
-def demo_content_access(
-    premium: bool = True,
-    has_access: bool = False,
+@router.get("/{course_id}/content")
+def get_course_content(
+    course_id: str,
+    user=Depends(get_current_user),
 ):
-    resource = CourseContentResource(
-        title="Lección Premium de Python",
-        resource_url="/media/python-avanzado",
-    )
+    try:
+        course = facade.get_course(course_id)
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="Curso no encontrado")
 
-    proxy = PremiumContentProxy(
-        resource=resource,
-        is_premium=premium,
-        has_access=has_access,
+    is_premium = bool(course.get_details().get("premium"))
+    is_staff = user.role in ("instructor", "admin")
+    full_name = f"{user.first_name} {user.last_name}"
+
+    proxy = ProtectedContentProxy(
+        real_factory=lambda: course.content,
+        course=course,
+        student_id=full_name,   # mismo valor que el front envía al inscribir
+        policy=EnrolledStudentPolicy(),
+        requires_access=is_premium and not is_staff,
     )
 
     try:
-        return proxy.get_content()
-    except PermissionError as error:
-        raise HTTPException(
-            status_code=403,
-            detail=str(error),
-        )
+        return proxy.to_dict()
+    except ContentAccessDenied as error:
+        raise HTTPException(status_code=403, detail=str(error))
+
 
 # ============================================================
 # FLYWEIGHT: CONSULTAR METADATOS COMPARTIDOS

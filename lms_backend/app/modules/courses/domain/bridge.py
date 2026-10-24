@@ -9,6 +9,9 @@ from abc import ABC, abstractmethod
 from app.modules.courses.domain.content_component import (
     ContentComponent
 )
+from app.modules.courses.domain.content_flyweight import (
+    ContentMetadataFactory
+)
 
 class MediaStorageProvider(ABC):
     """
@@ -56,7 +59,12 @@ class LessonContent(ContentComponent, ABC):
 
     Una lección puede trabajar con diferentes
     proveedores de almacenamiento.
+
+    Flyweight: los metadatos (tipo, etiqueta, icono) se obtienen de la
+    fábrica compartida en lugar de definirse en cada lección.
     """
+
+    CONTENT_TYPE: str = ""
 
     def __init__(
         self,
@@ -67,9 +75,14 @@ class LessonContent(ContentComponent, ABC):
         self.title = title
         self.media_id = media_id
         self._provider = provider
+        self.metadata = ContentMetadataFactory.get_metadata(
+            self.CONTENT_TYPE
+        )
 
 
 class VideoLesson(LessonContent):
+
+    CONTENT_TYPE = "video"
 
     def render_content(self) -> str:
 
@@ -90,7 +103,9 @@ class VideoLesson(LessonContent):
     def to_dict(self) -> dict:
 
         return {
-            "type": "video",
+            "type": self.metadata.content_type,
+            "label": self.metadata.label,
+            "icon": self.metadata.icon,
             "title": self.title,
             "media_id": self.media_id,
             "provider": (
@@ -107,6 +122,8 @@ class VideoLesson(LessonContent):
 
 class InteractiveQuizLesson(LessonContent):
 
+    CONTENT_TYPE = "quiz"
+
     def render_content(self) -> str:
 
         url = self._provider.get_stream_url(
@@ -122,7 +139,9 @@ class InteractiveQuizLesson(LessonContent):
     def to_dict(self) -> dict:
 
         return {
-            "type": "quiz",
+            "type": self.metadata.content_type,
+            "label": self.metadata.label,
+            "icon": self.metadata.icon,
             "title": self.title,
             "media_id": self.media_id,
             "provider": (

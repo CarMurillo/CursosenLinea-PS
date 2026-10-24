@@ -1,3 +1,4 @@
+
 import {
     useEffect,
     useState
@@ -49,6 +50,7 @@ const CourseContent = () => {
             console.error(error);
 
             setError(
+                error.response?.data?.detail ||
                 "No se pudo cargar el contenido."
             );
         }
@@ -110,7 +112,8 @@ const CourseContent = () => {
 
                                             <p>
                                                 Tipo:{" "}
-                                                {lesson.type}
+                                                {lesson.label || lesson.type}
+                                                {lesson.icon && ` (${lesson.icon})`}
                                             </p>
 
                                             <p>

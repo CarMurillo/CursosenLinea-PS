@@ -1,3 +1,4 @@
+
 import api from "./api";
 
 export const getCourses = async () => {
@@ -33,10 +34,8 @@ export const cloneCourse = async (courseId, newTitle = "") => {
     return response.data;
 };
 
-export const getCourseContent = async (
-    courseId
-) => {
-
+// Proxy: el acceso lo decide el backend con el token (401 / 403 / 200).
+export const getCourseContent = async (courseId) => {
     const response = await api.get(
         `/courses/${courseId}/content`
     );
@@ -44,12 +43,7 @@ export const getCourseContent = async (
     return response.data;
 };
 
-
-export const addLesson = async (
-    courseId,
-    lessonData
-) => {
-
+export const addLesson = async (courseId, lessonData) => {
     const response = await api.post(
         `/courses/${courseId}/content/lessons`,
         lessonData
@@ -58,13 +52,11 @@ export const addLesson = async (
     return response.data;
 };
 
-// Proxy: comprobar el acceso al contenido de demostración.
-export const getDemoContentAccess = async (hasAccess = false) => {
-    const response = await api.get("/courses/demo-content-access", {
-        params: {
-            premium: true,
-            has_access: hasAccess
-        }
-    });
+// Flyweight: metadatos compartidos por tipo de contenido (video, quiz, document).
+export const getContentMetadata = async (contentType) => {
+    const response = await api.get(
+        `/courses/content-metadata/${contentType}`
+    );
+
     return response.data;
 };

@@ -7,6 +7,9 @@ from app.modules.courses.application.dtos import (
     EnrollmentDTO,
     LessonCreateDTO,
 )
+from app.modules.courses.domain.content_flyweight import (
+    ContentMetadataFactory,
+)
 
 from app.modules.courses.application.course_facade import (
     CourseFacade,
@@ -198,5 +201,28 @@ def demo_content_access(
     except PermissionError as error:
         raise HTTPException(
             status_code=403,
+            detail=str(error),
+        )
+
+# ============================================================
+# FLYWEIGHT: CONSULTAR METADATOS COMPARTIDOS
+# ============================================================
+
+@router.get("/content-metadata/{content_type}")
+def get_content_metadata(content_type: str):
+    try:
+        metadata = ContentMetadataFactory.get_metadata(
+            content_type
+        )
+
+        return {
+            "content_type": metadata.content_type,
+            "label": metadata.label,
+            "icon": metadata.icon,
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
             detail=str(error),
         )

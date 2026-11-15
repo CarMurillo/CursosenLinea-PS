@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.modules.courses.infrastructure.repository import course_repository
 from app.modules.payments.application.dtos import PaymentRequestDTO
 from app.modules.payments.application.use_cases import (
     AlreadyPaidError,
@@ -9,7 +8,6 @@ from app.modules.payments.application.use_cases import (
     ProcessPaymentUseCase,
     UnsupportedGatewayError,
 )
-from app.modules.payments.infrastructure.repository import payment_repository
 from app.shared.infrastructure import container
 from app.shared.infrastructure.auth_deps import get_current_user
 
@@ -30,7 +28,7 @@ def process_payment(
     user=Depends(get_current_user),
     use_case: ProcessPaymentUseCase = Depends(get_process_payment_use_case),
 ):
-    if course_repository.get_by_id(dto.course_id) is None:
+    if container.course_repository.get_by_id(dto.course_id) is None:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
 
     try:
@@ -62,4 +60,4 @@ def process_payment(
 @router.get("/me")
 def my_payments(user=Depends(get_current_user)):
     """Historial de pagos del usuario autenticado."""
-    return [p.to_dict() for p in payment_repository.list_by_user(user.id)]
+    return [p.to_dict() for p in container.payment_repository.list_by_user(user.id)]

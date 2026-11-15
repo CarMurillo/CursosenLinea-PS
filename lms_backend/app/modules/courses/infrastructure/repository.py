@@ -26,6 +26,9 @@ class InMemoryCourseRepository(CourseRepository):
     def list_all(self) -> List[Course]:
         return list(self._courses.values())
 
+    def clear(self) -> None:
+        self._courses.clear()
 
-# Instancia compartida por toda la app durante esta fase (sin persistencia real todavía).
-course_repository = InMemoryCourseRepository()
+
+# La instancia compartida la crea el composition root:
+# app/shared/infrastructure/container.py (`container.course_repository`).

@@ -20,6 +20,10 @@ class InMemoryAssessmentRepository:
     def list_by_course(self, course_id: str) -> List[Assessment]:
         return [a for a in self._items.values() if a.course_id == course_id]
 
+    def count(self) -> int:
+        with self._lock:
+            return len(self._items)
+
     def clear(self) -> None:
         with self._lock:
             self._items.clear()

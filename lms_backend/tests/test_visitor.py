@@ -24,15 +24,12 @@ from app.modules.courses.domain.visitor import (
     LessonIndexVisitor,
     ProgressVisitor,
 )
-from app.modules.courses.infrastructure.repository import course_repository
 from app.modules.progress.application.use_cases import (
     CompleteLessonUseCase,
     LessonNotFoundError,
 )
-from app.modules.progress.infrastructure.repository import (
-    InMemoryProgressRepository,
-    progress_repository,
-)
+from app.modules.progress.infrastructure.repository import InMemoryProgressRepository
+from app.shared.infrastructure.container import course_repository, progress_repository
 
 PWD = "Secreta123"
 
@@ -348,10 +345,13 @@ def test_flujo_progreso_inscrito_200_e_idempotente(client):
 
 def test_progreso_es_por_estudiante(client):
     inst = _login(client, "i@x.com", "instructor")
-    cid = _course(client, inst)            # curso gratuito: acceso abierto
+    cid = _course(client, inst)            # curso gratuito
     l1 = _lesson(client, inst, cid)
     a = _login(client, "a@x.com", "student")
     b = _login(client, "b@x.com", "student")
+    # El progreso exige inscripción también en cursos gratuitos.
+    assert client.post(f"/courses/{cid}/enroll", headers=a).status_code == 200
+    assert client.post(f"/courses/{cid}/enroll", headers=b).status_code == 200
     client.post(f"/courses/{cid}/lessons/{l1}/complete", headers=a)
     assert client.get(f"/courses/{cid}/progress/me", headers=a).json()["percentage"] == 100.0
     assert client.get(f"/courses/{cid}/progress/me", headers=b).json()["percentage"] == 0.0
@@ -368,3 +368,43 @@ def test_summary_dueno_200(client):
     assert body["lessons_by_type"] == {"video": 1, "quiz": 1}
     assert "## M1" in body["syllabus_markdown"]
     assert course_repository.get_by_id(cid) is not None
+
+
+def test_progreso_en_curso_gratuito_exige_inscripcion(client):
+    inst = _login(client, "i@x.com", "instructor")
+    cid = _course(client, inst)            # gratuito
+    l1 = _lesson(client, inst, cid)
+    alum = _login(client, "a@x.com", "student")
+    # El contenido y el resumen de un curso gratuito siguen abiertos...
+    assert client.get(f"/courses/{cid}/content", headers=alum).status_code == 200
+    assert client.get(f"/courses/{cid}/content/summary", headers=alum).status_code == 200
+    # ...pero completar lecciones y ver progreso exige estar inscrito.
+    assert client.post(f"/courses/{cid}/lessons/{l1}/complete", headers=alum).status_code == 403
+    assert client.get(f"/courses/{cid}/progress/me", headers=alum).status_code == 403
+    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 200
+    assert client.post(f"/courses/{cid}/lessons/{l1}/complete", headers=alum).status_code == 200
+    # El dueño sí puede (previsualizar su propio curso).
+    assert client.get(f"/courses/{cid}/progress/me", headers=inst).status_code == 200
+
+
+def test_completar_leccion_publica_lesson_completed_en_el_bus(client):
+    from app.shared.infrastructure import container
+
+    inst = _login(client, "i@x.com", "instructor")
+    cid = _course(client, inst)
+    l1 = _lesson(client, inst, cid)
+    alum = _login(client, "a@x.com", "student")
+    client.post(f"/courses/{cid}/enroll", headers=alum)
+    client.post(f"/courses/{cid}/lessons/{l1}/complete", headers=alum)
+    client.post(f"/courses/{cid}/lessons/{l1}/complete", headers=alum)  # idempotente
+
+    entries = container.audit_log_repository.list_entries(event_type="lesson_completed")
+    assert len(entries) == 1
+    event = entries[0].to_dict()
+    assert event["course_id"] == cid
+    assert event["payload"]["lesson_id"] == l1
+    assert event["payload"]["progress_percent"] == 100.0
+    # RecommendationProfileObserver alimentó el perfil.
+    me_id = event["user_id"]
+    profile = container.learning_profile_repository.get_profile(me_id)
+    assert profile["completed_lessons"] == {cid: [l1]}

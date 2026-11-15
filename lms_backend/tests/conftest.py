@@ -12,8 +12,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
-from app.modules.courses.infrastructure.repository import course_repository
-from app.modules.payments.infrastructure.repository import payment_repository
 from app.shared.infrastructure import container
 from app.shared.infrastructure.database import Base, get_db
 
@@ -51,9 +49,7 @@ def client():
 
 
 def _reset_shared_state():
-    course_repository._courses.clear()
-    payment_repository.clear()
-    # Notificaciones, auditoría, stubs de certificados/perfil y el bus único
+    # Cursos, pagos, progreso, notificaciones, auditoría, stubs de certificados/perfil y el bus único
     # (se re-cablea con sus observadores por defecto: quita los que un test
     # haya adjuntado).
     container.reset_state()

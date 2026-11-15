@@ -20,3 +20,17 @@ class LearningProfilePort(Protocol):
     def record_certificate(self, user_id: str, course_id: str) -> None: ...
 
     def get_profile(self, user_id: str) -> dict: ...
+
+
+class RecommendationCatalogPort(Protocol):
+    """Catálogo de cursos visto por el motor de recomendaciones."""
+
+    def list_snapshots(self) -> list: ...           # List[CourseSnapshot]
+
+    def enrolled_course_ids(self, user_id: str) -> list: ...
+
+
+class ProgressReaderPort(Protocol):
+    """% de avance de un estudiante en un curso (lo calcula el Visitor)."""
+
+    def progress_percent(self, user_id: str, course_id: str) -> float: ...

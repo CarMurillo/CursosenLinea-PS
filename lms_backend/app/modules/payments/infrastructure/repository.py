@@ -23,9 +23,14 @@ class InMemoryPaymentRepository(PaymentRepository):
             for p in self._payments
         )
 
+    def count(self) -> int:
+        return len(self._payments)
+
     def clear(self) -> None:
         self._payments.clear()
 
 
-# Instancia compartida (composition root provisional hasta container.py).
-payment_repository = InMemoryPaymentRepository()
+
+# La instancia compartida la crea el composition root:
+# app/shared/infrastructure/container.py (`container.payment_repository`).
+

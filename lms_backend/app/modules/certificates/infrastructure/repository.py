@@ -32,6 +32,10 @@ class InMemoryCertificateRepository:
             (c for c in self._items.values() if c.verification_code == code), None
         )
 
+    def count(self) -> int:
+        with self._lock:
+            return len(self._items)
+
     def clear(self) -> None:
         with self._lock:
             self._items.clear()

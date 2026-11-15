@@ -30,10 +30,8 @@ from app.modules.payments.application.use_cases import (
 from app.modules.payments.domain.adapter import PaymentGatewayPort, PaymentResult
 from app.modules.payments.domain.models import PaymentStatus
 from app.modules.payments.infrastructure.api import get_process_payment_use_case
-from app.modules.payments.infrastructure.repository import (
-    InMemoryPaymentRepository,
-    payment_repository,
-)
+from app.modules.payments.infrastructure.repository import InMemoryPaymentRepository
+from app.shared.infrastructure.container import payment_repository
 from app.shared.infrastructure.config.system_config import SystemConfig
 from app.shared.infrastructure.database import engine, get_db
 
@@ -182,7 +180,7 @@ def test_b2_enroll_guarda_user_id_e_ignora_student_name(client):
     cid = _course(client, inst)["id"]
     r = client.post(f"/courses/{cid}/enroll", json={"student_name": "Otro"}, headers=alum)
     assert r.status_code == 200
-    from app.modules.courses.infrastructure.repository import course_repository
+    from app.shared.infrastructure.container import course_repository
     me = client.post("/auth/login", json={"email": "a@x.com", "password": PWD}).json()["user"]
     assert course_repository.get_by_id(cid).enrolled_students == [me["user_id"]]
 
@@ -323,7 +321,7 @@ def test_b6_notificador_unico_inyectado():
 def test_b7_clone_renombra_raiz_composite(client):
     inst = _login(client, "i@x.com", "instructor")
     cid = _course(client, inst, title="Original")["id"]
-    from app.modules.courses.infrastructure.repository import course_repository
+    from app.shared.infrastructure.container import course_repository
     r = client.post(f"/courses/{cid}/clone", json={"new_title": "Grupo 2"}, headers=inst)
     clone = course_repository.get_by_id(r.json()["id"])
     assert clone.content.title == "Contenido de Grupo 2"

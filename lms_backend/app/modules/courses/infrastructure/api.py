@@ -11,10 +11,6 @@ from app.modules.courses.domain.content_flyweight import (
     ContentMetadataFactory,
 )
 
-from app.modules.courses.application.course_facade import (
-    CourseFacade,
-)
-
 from app.modules.courses.application.use_cases import (
     AlreadyEnrolledError,
     CourseNotFoundError,
@@ -39,19 +35,16 @@ from app.modules.courses.domain.visitor import (
     ContentSummaryVisitor,
     ExportSyllabusVisitor,
 )
-from app.modules.courses.infrastructure.repository import course_repository
 from app.modules.progress.application.use_cases import (
     CompleteLessonUseCase,
     GetProgressUseCase,
     LessonNotFoundError,
 )
-from app.modules.progress.infrastructure.repository import progress_repository
-from app.modules.payments.infrastructure.repository import payment_repository
 from app.shared.infrastructure.auth_deps import (  # noqa: F401  (reexport)
     get_current_user,
     require_role,
 )
-from app.shared.infrastructure.container import event_bus
+from app.shared.infrastructure import container
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -60,13 +53,9 @@ router = APIRouter(prefix="/courses", tags=["courses"])
 require_staff = require_role("instructor", "admin")
 
 
-# FACADE: la infraestructura (composition root) inyecta el adaptador,
-# el bus de eventos único (Observer) y el verificador de pagos.
-facade = CourseFacade(
-    course_repository,
-    payment_checker=payment_repository,
-    event_bus=event_bus,
-)
+# FACADE: instancia única creada en el composition root (container.py) con
+# el repositorio, el bus de eventos único (Observer) y el verificador de pagos.
+facade = container.course_facade
 
 
 def _get_course_or_404(course_id: str):
@@ -295,8 +284,7 @@ def add_lesson(
 
 def _content_proxy(course, user) -> ProtectedContentProxy:
     """
-    Política única de acceso al contenido (PROXY), compartida por /content,
-    /content/summary, /progress/me y /lessons/{id}/complete:
+    Política de acceso al contenido (PROXY) de /content y /content/summary:
     cursos premium o de pago exigen inscripción (que a su vez exige pago);
     el dueño del curso y los administradores siempre pasan.
     """
@@ -311,6 +299,25 @@ def _content_proxy(course, user) -> ProtectedContentProxy:
         student_id=user.id,   # identidad por user_id (no por nombre)
         policy=EnrolledStudentPolicy(),
         requires_access=is_paid and not is_owner_or_admin,
+    )
+
+
+def _progress_proxy(course, user) -> ProtectedContentProxy:
+    """
+    Política de PROGRESO (completar lección y ver progreso): exige estar
+    inscrito en TODOS los cursos, también en los gratuitos; el dueño y los
+    administradores siempre pasan. Así el progreso solo existe para
+    matrículas reales (y alimenta bien las recomendaciones).
+    """
+    is_owner_or_admin = (
+        user.role == "admin" or course.instructor_id == user.id
+    )
+    return ProtectedContentProxy(
+        real_factory=lambda: course.content,
+        course=course,
+        student_id=user.id,
+        policy=EnrolledStudentPolicy(),
+        requires_access=not is_owner_or_admin,
     )
 
 
@@ -333,13 +340,13 @@ def get_course_content(
 # ============================================================
 
 def get_complete_lesson_use_case() -> CompleteLessonUseCase:
-    # event_bus/event_factory: los conecta el composition root (Fase 3)
-    # para publicar LESSON_COMPLETED.
-    return CompleteLessonUseCase(progress_repository)
+    # El composition root inyecta el bus único y la fábrica del evento
+    # LESSON_COMPLETED (payload: lesson_id, progress_percent).
+    return container.make_complete_lesson_use_case()
 
 
 def get_progress_use_case() -> GetProgressUseCase:
-    return GetProgressUseCase(progress_repository)
+    return container.make_progress_use_case()
 
 
 @router.post("/{course_id}/lessons/{lesson_id}/complete")
@@ -352,7 +359,7 @@ def complete_lesson(
     course = _get_course_or_404(course_id)
     try:
         result = use_case.execute(
-            _content_proxy(course, user), user.id, course.course_id, lesson_id
+            _progress_proxy(course, user), user.id, course.course_id, lesson_id
         )
     except ContentAccessDenied as error:
         raise HTTPException(status_code=403, detail=str(error))
@@ -371,7 +378,7 @@ def get_my_progress(
     course = _get_course_or_404(course_id)
     try:
         progress = use_case.execute(
-            _content_proxy(course, user), user.id, course.course_id
+            _progress_proxy(course, user), user.id, course.course_id
         )
     except ContentAccessDenied as error:
         raise HTTPException(status_code=403, detail=str(error))

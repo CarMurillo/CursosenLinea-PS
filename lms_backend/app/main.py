@@ -19,9 +19,21 @@ from app.modules.notifications.infrastructure.api import (
     router as notifications_router,
 )
 from app.modules.payments.infrastructure.api import router as payments_router
+from app.modules.recommendations.infrastructure.api import (
+    router as recommendations_router,
+)
 from app.shared.infrastructure.config.system_config import SystemConfig
 from app.shared.infrastructure.database import init_db
+from app.shared.infrastructure.observability import (
+    configure_logging,
+    log_requests,
+    router as health_router,
+)
 from app.users.infrastructure.api import router as users_router
+
+# Instancia del Singleton
+config = SystemConfig()
+configure_logging(config.log_level)
 
 
 @asynccontextmanager
@@ -32,19 +44,26 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="LMS Advanced Platform", lifespan=lifespan)
+app = FastAPI(title=config.app_name, version=config.version, lifespan=lifespan)
 
-# Instancia del Singleton
-config = SystemConfig()
+# Logging de cada request: método, ruta, status y duración en ms.
+app.middleware("http")(log_requests)
 
+# CORS: orígenes explícitos desde SystemConfig (CORS_ORIGINS); "*" no es
+# válido junto con allow_credentials=True.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite peticiones desde cualquier origen local
+    allow_origins=config.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Todos los routers. Las dependencias (repositorios, bus de eventos único,
+# servicios) salen del composition root: app/shared/infrastructure/container.py.
+# Dentro de cada router las rutas literales (/courses/me/...,
+# /courses/content-metadata/...) se declaran antes de /{course_id}.
+app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(courses_router)
@@ -59,9 +78,12 @@ app.include_router(course_assessments_router)
 app.include_router(live_sessions_router)
 app.include_router(course_live_sessions_router)
 app.include_router(certificates_router)
+# Progreso (Visitor): POST /courses/{id}/lessons/{lesson_id}/complete y
+# GET /courses/{id}/progress/me están en el router de cursos.
+app.include_router(recommendations_router)
 
 
-@app.get("/")
+@app.get("/", tags=["health"])
 def root():
     return {"message": "API del LMS activa", "app": config.system_name}
 

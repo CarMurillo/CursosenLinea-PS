@@ -20,6 +20,10 @@ class InMemoryLiveSessionRepository:
     def list_by_course(self, course_id: str) -> List[LiveSession]:
         return [s for s in self._items.values() if s.course_id == course_id]
 
+    def count(self) -> int:
+        with self._lock:
+            return len(self._items)
+
     def clear(self) -> None:
         with self._lock:
             self._items.clear()

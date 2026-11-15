@@ -21,5 +21,7 @@ class InMemoryProgressRepository(ProgressRepository):
         self._completed.clear()
 
 
-# Instancia compartida (composition root provisional hasta container.py).
-progress_repository = InMemoryProgressRepository()
+
+# La instancia compartida la crea el composition root:
+# app/shared/infrastructure/container.py (`container.progress_repository`).
+

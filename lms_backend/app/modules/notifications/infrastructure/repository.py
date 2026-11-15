@@ -28,6 +28,10 @@ class InMemoryNotificationRepository(NotificationRepository):
     def list_by_user(self, user_id: str) -> List[Notification]:
         return [n for n in reversed(self._items) if n.user_id == user_id]
 
+    def count(self) -> int:
+        with self._lock:
+            return len(self._items)
+
     def clear(self) -> None:
         with self._lock:
             self._items.clear()
@@ -50,6 +54,10 @@ class InMemoryAuditLogRepository(AuditLogRepository):
             if event_type is None or e.event_type == event_type
         ]
         return items[:limit] if limit is not None else items
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._entries)
 
     def clear(self) -> None:
         with self._lock:

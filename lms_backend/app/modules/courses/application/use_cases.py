@@ -6,15 +6,22 @@ Patrones implementados:
 - Builder: construcción progresiva de cursos.
 - Factory Method: creación del tipo concreto de curso.
 - Prototype: clonación de cursos existentes.
-- Observer: notificaciones al realizar matrículas.
+- Observer: los casos de uso publican eventos de dominio (COURSE_PUBLISHED,
+  STUDENT_ENROLLED) en el bus único inyectado desde el composition root.
 """
 
-from typing import Any, Optional, Protocol
+from typing import Optional, Protocol
 
 from app.modules.courses.application.dtos import CourseCreateDTO
 from app.modules.courses.domain.builder import CourseBuilder
 from app.modules.courses.domain.models import Course
 from app.modules.courses.domain.ports import CourseRepository
+from app.shared.domain.events import (
+    DomainEvent,
+    EventPublisher,
+    EventType,
+    publish_event,
+)
 
 from app.modules.courses.domain.decorator import (
     CertificateCourseDecorator,
@@ -62,10 +69,10 @@ class PublishCourseUseCase:
     def __init__(
         self,
         repository: CourseRepository,
-        event_bus: Optional[Any] = None,
+        event_bus: Optional[EventPublisher] = None,
     ):
         self.repository = repository
-        # Punto de inyección del bus (Fase 2: COURSE_PUBLISHED).
+        # Observer: bus único inyectado; publica COURSE_PUBLISHED.
         self.event_bus = event_bus
 
     def execute(
@@ -92,7 +99,23 @@ class PublishCourseUseCase:
         if dto.certificate:
             course = CertificateCourseDecorator(course)
 
-        return self.repository.save(course)
+        saved = self.repository.save(course)
+
+        details = saved.get_details()
+        publish_event(self.event_bus, DomainEvent(
+            EventType.COURSE_PUBLISHED,
+            user_id=instructor_id,
+            course_id=saved.course_id,
+            payload={
+                "course_title": saved.title,
+                "instructor": saved.instructor,
+                "price": saved.price,
+                "premium": bool(details.get("premium")),
+                "certificate": bool(details.get("certificate")),
+            },
+        ))
+
+        return saved
 
 
 # ============================================================
@@ -150,21 +173,18 @@ class EnrollStudentUseCase:
     - La identidad es el id del usuario autenticado (no un nombre libre).
     - Inscripción duplicada -> AlreadyEnrolledError.
     - Curso premium o con precio sin pago aprobado -> PaymentRequiredError.
-    - Observer: el notificador (bus) se INYECTA; ya no se crea un Subject
-      por request. Si no se inyecta, no se notifica.
+    - Observer: publica STUDENT_ENROLLED en el bus único INYECTADO (ya no
+      se crea un Subject por request). Sin bus, no se notifica.
     """
 
     def __init__(
         self,
         repository: CourseRepository,
-        notifier: Optional[Any] = None,
         payment_checker: Optional[ApprovedPaymentChecker] = None,
-        event_bus: Optional[Any] = None,
+        event_bus: Optional[EventPublisher] = None,
     ):
         self.repository = repository
-        self._notifier = notifier
         self._payment_checker = payment_checker
-        # Punto de inyección del bus de dominio (Fase 2: STUDENT_ENROLLED).
         self.event_bus = event_bus
 
     def execute(
@@ -194,11 +214,15 @@ class EnrollStudentUseCase:
 
         course.enrolled_students.append(user_id)
 
-        if self._notifier is not None:
-            self._notifier.notify(
-                student_name or user_id,
-                course.title
-            )
+        publish_event(self.event_bus, DomainEvent(
+            EventType.STUDENT_ENROLLED,
+            user_id=user_id,
+            course_id=course.course_id,
+            payload={
+                "student_name": student_name or user_id,
+                "course_title": course.title,
+            },
+        ))
 
         return course
 

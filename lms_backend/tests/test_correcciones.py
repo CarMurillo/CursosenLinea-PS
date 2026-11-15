@@ -239,7 +239,9 @@ def test_pago_luego_inscripcion_y_contenido(client):
     alum = _login(client, "a@x.com", "student")
     cid = _course(client, inst, price=10, premium=True)["id"]
     assert _pay(client, alum, cid, gateway="wompi", currency="COP").status_code == 200
-    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 200
+    # Fase 2 (Observer): PAYMENT_APPROVED inscribe automáticamente, así que
+    # un POST /enroll posterior es un duplicado (409).
+    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 409
     assert client.get(f"/courses/{cid}/content", headers=alum).status_code == 200
 
 
@@ -309,9 +311,11 @@ def test_b5_bd_usa_system_config():
 # ------------------------------------------------------ B6: bus único
 
 def test_b6_notificador_unico_inyectado():
+    # Fase 2: el bus provisional se reemplazó por el bus único del
+    # composition root (container.event_bus), inyectado en la fachada.
     from app.modules.courses.infrastructure import api as courses_api
-    from app.shared.infrastructure.event_bus import enrollment_notifier
-    assert courses_api.facade._notifier is enrollment_notifier
+    from app.shared.infrastructure.container import event_bus
+    assert courses_api.facade._event_bus is event_bus
 
 
 # --------------------------------------------- B7/E6: Prototype + Flyweight

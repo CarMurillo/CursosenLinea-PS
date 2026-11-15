@@ -125,5 +125,6 @@ def test_endpoint_clone_y_proxy(client):
     pay = client.post("/payments/process", json={"amount": 120, "currency": "USD",
         "gateway": "stripe", "course_id": cid}, headers=alum)
     assert pay.status_code == 200
-    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 200
+    # Fase 2 (Observer): el pago aprobado inscribe automáticamente -> 409.
+    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 409
     assert client.get(f"/courses/{cid}/content", headers=alum).status_code == 200

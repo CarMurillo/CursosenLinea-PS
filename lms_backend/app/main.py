@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.auth.infrastructure.api import router as auth_router
 from app.modules.courses.infrastructure.api import router as courses_router
+from app.modules.notifications.infrastructure.api import (
+    admin_router as admin_router,
+    router as notifications_router,
+)
 from app.modules.payments.infrastructure.api import router as payments_router
 from app.shared.infrastructure.config.system_config import SystemConfig
 from app.shared.infrastructure.database import init_db
@@ -36,6 +40,8 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(courses_router)
 app.include_router(payments_router)
+app.include_router(notifications_router)
+app.include_router(admin_router)
 
 
 @app.get("/")

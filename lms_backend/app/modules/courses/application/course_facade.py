@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 
 from app.modules.courses.application.dtos import CourseCreateDTO
 from app.modules.courses.application.use_cases import (
@@ -12,6 +12,7 @@ from app.modules.courses.application.use_cases import (
 )
 from app.modules.courses.domain.models import Course
 from app.modules.courses.domain.ports import CourseRepository
+from app.shared.domain.events import EventPublisher
 
 
 class CourseFacade:
@@ -20,19 +21,17 @@ class CourseFacade:
 
     Depende del PUERTO CourseRepository (no del adaptador concreto), de modo
     que la capa de aplicación no importa nada de infraestructura. El
-    notificador (Observer), el verificador de pagos y el bus de eventos se
-    inyectan desde el composition root; todos son opcionales.
+    verificador de pagos y el bus de eventos (Observer) se inyectan desde el
+    composition root; ambos son opcionales.
     """
 
     def __init__(
         self,
         repository: CourseRepository,
-        notifier: Optional[Any] = None,
         payment_checker: Optional[ApprovedPaymentChecker] = None,
-        event_bus: Optional[Any] = None,
+        event_bus: Optional[EventPublisher] = None,
     ):
         self._repository = repository
-        self._notifier = notifier
         self._payment_checker = payment_checker
         self._event_bus = event_bus
 
@@ -73,7 +72,6 @@ class CourseFacade:
     ) -> Course:
         return EnrollStudentUseCase(
             self._repository,
-            notifier=self._notifier,
             payment_checker=self._payment_checker,
             event_bus=self._event_bus,
         ).execute(course_id, user_id, student_name)

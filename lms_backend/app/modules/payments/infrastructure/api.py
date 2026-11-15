@@ -4,19 +4,24 @@ from app.modules.courses.infrastructure.repository import course_repository
 from app.modules.payments.application.dtos import PaymentRequestDTO
 from app.modules.payments.application.use_cases import (
     AlreadyPaidError,
+    AmountBelowPriceError,
     PaymentRejectedError,
     ProcessPaymentUseCase,
     UnsupportedGatewayError,
 )
 from app.modules.payments.infrastructure.repository import payment_repository
+from app.shared.infrastructure import container
 from app.shared.infrastructure.auth_deps import get_current_user
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
 def get_process_payment_use_case() -> ProcessPaymentUseCase:
-    """Dependencia sobrescribible en pruebas (p. ej. pasarela que rechaza)."""
-    return ProcessPaymentUseCase(payment_repository)
+    """Dependencia sobrescribible en pruebas (p. ej. pasarela que rechaza).
+
+    Usa el bus único (PAYMENT_APPROVED -> inscripción automática) y valida
+    que el monto cubra el precio del curso."""
+    return container.make_process_payment_use_case()
 
 
 @router.post("/process")
@@ -29,12 +34,17 @@ def process_payment(
         raise HTTPException(status_code=404, detail="Curso no encontrado")
 
     try:
-        payment = use_case.execute(dto, user_id=user.id, customer_email=user.email)
+        payment = use_case.execute(
+            dto,
+            user_id=user.id,
+            customer_email=user.email,
+            customer_name=f"{user.first_name} {user.last_name}",
+        )
     except AlreadyPaidError:
         raise HTTPException(
             status_code=409, detail="Ya existe un pago aprobado para este curso."
         )
-    except (PaymentRejectedError, UnsupportedGatewayError) as error:
+    except (PaymentRejectedError, UnsupportedGatewayError, AmountBelowPriceError) as error:
         raise HTTPException(status_code=400, detail=str(error))
 
     return {

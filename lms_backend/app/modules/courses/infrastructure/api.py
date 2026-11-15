@@ -35,13 +35,23 @@ from app.modules.courses.domain.content_proxy import (
     ProtectedContentProxy,
 )
 
+from app.modules.courses.domain.visitor import (
+    ContentSummaryVisitor,
+    ExportSyllabusVisitor,
+)
 from app.modules.courses.infrastructure.repository import course_repository
+from app.modules.progress.application.use_cases import (
+    CompleteLessonUseCase,
+    GetProgressUseCase,
+    LessonNotFoundError,
+)
+from app.modules.progress.infrastructure.repository import progress_repository
 from app.modules.payments.infrastructure.repository import payment_repository
 from app.shared.infrastructure.auth_deps import (  # noqa: F401  (reexport)
     get_current_user,
     require_role,
 )
-from app.shared.infrastructure.event_bus import enrollment_notifier
+from app.shared.infrastructure.container import event_bus
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -51,11 +61,11 @@ require_staff = require_role("instructor", "admin")
 
 
 # FACADE: la infraestructura (composition root) inyecta el adaptador,
-# el notificador único (Observer) y el verificador de pagos.
+# el bus de eventos único (Observer) y el verificador de pagos.
 facade = CourseFacade(
     course_repository,
-    notifier=enrollment_notifier,
     payment_checker=payment_repository,
+    event_bus=event_bus,
 )
 
 
@@ -283,21 +293,19 @@ def add_lesson(
 # PROXY: CONTENIDO PROTEGIDO DEL CURSO
 # ============================================================
 
-@router.get("/{course_id}/content")
-def get_course_content(
-    course_id: str,
-    user=Depends(get_current_user),
-):
-    course = _get_course_or_404(course_id)
-
-    # Cursos premium o de pago exigen inscripción (que a su vez exige pago).
-    # El dueño del curso y los administradores siempre pueden verlo.
+def _content_proxy(course, user) -> ProtectedContentProxy:
+    """
+    Política única de acceso al contenido (PROXY), compartida por /content,
+    /content/summary, /progress/me y /lessons/{id}/complete:
+    cursos premium o de pago exigen inscripción (que a su vez exige pago);
+    el dueño del curso y los administradores siempre pasan.
+    """
     is_paid = course_requires_payment(course)
     is_owner_or_admin = (
         user.role == "admin" or course.instructor_id == user.id
     )
 
-    proxy = ProtectedContentProxy(
+    return ProtectedContentProxy(
         real_factory=lambda: course.content,
         course=course,
         student_id=user.id,   # identidad por user_id (no por nombre)
@@ -305,7 +313,89 @@ def get_course_content(
         requires_access=is_paid and not is_owner_or_admin,
     )
 
+
+@router.get("/{course_id}/content")
+def get_course_content(
+    course_id: str,
+    user=Depends(get_current_user),
+):
+    course = _get_course_or_404(course_id)
+    proxy = _content_proxy(course, user)
+
     try:
         return proxy.to_dict()
     except ContentAccessDenied as error:
         raise HTTPException(status_code=403, detail=str(error))
+
+
+# ============================================================
+# VISITOR: PROGRESO Y RESUMEN DEL CONTENIDO
+# ============================================================
+
+def get_complete_lesson_use_case() -> CompleteLessonUseCase:
+    # event_bus/event_factory: los conecta el composition root (Fase 3)
+    # para publicar LESSON_COMPLETED.
+    return CompleteLessonUseCase(progress_repository)
+
+
+def get_progress_use_case() -> GetProgressUseCase:
+    return GetProgressUseCase(progress_repository)
+
+
+@router.post("/{course_id}/lessons/{lesson_id}/complete")
+def complete_lesson(
+    course_id: str,
+    lesson_id: str,
+    user=Depends(get_current_user),
+    use_case: CompleteLessonUseCase = Depends(get_complete_lesson_use_case),
+):
+    course = _get_course_or_404(course_id)
+    try:
+        result = use_case.execute(
+            _content_proxy(course, user), user.id, course.course_id, lesson_id
+        )
+    except ContentAccessDenied as error:
+        raise HTTPException(status_code=403, detail=str(error))
+    except LessonNotFoundError:
+        raise HTTPException(status_code=404, detail="Lección no encontrada")
+
+    return {"course_id": course.course_id, **result}
+
+
+@router.get("/{course_id}/progress/me")
+def get_my_progress(
+    course_id: str,
+    user=Depends(get_current_user),
+    use_case: GetProgressUseCase = Depends(get_progress_use_case),
+):
+    course = _get_course_or_404(course_id)
+    try:
+        progress = use_case.execute(
+            _content_proxy(course, user), user.id, course.course_id
+        )
+    except ContentAccessDenied as error:
+        raise HTTPException(status_code=403, detail=str(error))
+
+    return {"course_id": course.course_id, "user_id": user.id, **progress}
+
+
+@router.get("/{course_id}/content/summary")
+def get_content_summary(
+    course_id: str,
+    user=Depends(get_current_user),
+):
+    course = _get_course_or_404(course_id)
+    proxy = _content_proxy(course, user)
+    summary = ContentSummaryVisitor()
+    syllabus = ExportSyllabusVisitor()
+    try:
+        proxy.accept(summary)
+        proxy.accept(syllabus)
+    except ContentAccessDenied as error:
+        raise HTTPException(status_code=403, detail=str(error))
+
+    return {
+        "course_id": course.course_id,
+        **summary.result(),
+        "syllabus_markdown": syllabus.to_markdown(),
+    }

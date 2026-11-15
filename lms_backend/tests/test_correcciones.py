@@ -301,7 +301,9 @@ def test_courses_api_reexporta_get_current_user():
 # ------------------------------------------------------ B5: Singleton en BD
 
 def test_b5_bd_usa_system_config():
-    assert str(engine.url) == SystemConfig().database_url
+    # Comparar por componentes: versiones nuevas de SQLAlchemy escapan ':' al renderizar la URL.
+    from sqlalchemy.engine import make_url
+    assert engine.url == make_url(SystemConfig().database_url)
     # conftest fija DATABASE_URL: pytest no escribe en ./app.db.
     assert SystemConfig().database_url == "sqlite:///:memory:"
 

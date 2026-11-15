@@ -3,8 +3,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.modules.assessments.infrastructure.api import (
+    courses_router as course_assessments_router,
+    router as assessments_router,
+)
 from app.modules.auth.infrastructure.api import router as auth_router
+from app.modules.certificates.infrastructure.api import router as certificates_router
 from app.modules.courses.infrastructure.api import router as courses_router
+from app.modules.live_sessions.infrastructure.api import (
+    courses_router as course_live_sessions_router,
+    router as live_sessions_router,
+)
 from app.modules.notifications.infrastructure.api import (
     admin_router as admin_router,
     router as notifications_router,
@@ -42,6 +51,14 @@ app.include_router(courses_router)
 app.include_router(payments_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
+# Patrón State: evaluaciones, clases en vivo y certificados. Las rutas
+# /courses/{id}/assessments y /courses/{id}/live-sessions viven en sus
+# módulos (no colisionan con las del router de cursos).
+app.include_router(assessments_router)
+app.include_router(course_assessments_router)
+app.include_router(live_sessions_router)
+app.include_router(course_live_sessions_router)
+app.include_router(certificates_router)
 
 
 @app.get("/")

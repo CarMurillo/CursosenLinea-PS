@@ -15,13 +15,25 @@ Mapa de suscripciones (evento -> observadores):
 - ASSESSMENT_GRADED        -> CertificateIssuerObserver (publica CERTIFICATE_ISSUED)
 - STUDENT_ENROLLED, LESSON_COMPLETED, ASSESSMENT_GRADED, CERTIFICATE_ISSUED
                            -> RecommendationProfileObserver
+
+Patrón State (fase patron-state): servicios de evaluaciones
+(`make_assessment_service`), clases en vivo (`make_live_session_service`,
+con el `JitsiAdapter` simulado) y certificados (`certificate_service`, que es
+el `CertificateIssuerPort` real del observer). Todos usan el bus único.
 """
 
 from typing import List, Optional
 
+from app.modules.assessments.application.use_cases import AssessmentService
+from app.modules.assessments.infrastructure.repository import (
+    InMemoryAssessmentRepository,
+)
 from app.modules.certificates.application.observers import CertificateIssuerObserver
+from app.modules.certificates.application.services import CertificateService
 from app.modules.certificates.domain.ports import CertificateIssuerPort
-from app.modules.certificates.infrastructure.stub import InMemoryCertificateIssuer
+from app.modules.certificates.infrastructure.repository import (
+    InMemoryCertificateRepository,
+)
 from app.modules.courses.application.observers import AutoEnrollOnPaymentObserver
 from app.modules.courses.application.use_cases import EnrollStudentUseCase
 from app.modules.courses.domain.ports import CourseRepository
@@ -45,14 +57,23 @@ from app.modules.recommendations.domain.ports import LearningProfilePort
 from app.modules.recommendations.infrastructure.repository import (
     InMemoryLearningProfileRepository,
 )
+from app.modules.live_sessions.application.use_cases import LiveSessionService
+from app.modules.live_sessions.infrastructure.jitsi_adapter import JitsiAdapter
+from app.modules.live_sessions.infrastructure.repository import (
+    InMemoryLiveSessionRepository,
+)
 from app.shared.domain.events import Subject
+from app.shared.domain.state import CourseInfo
 from app.shared.domain.observers import AuditLogObserver, EmailNotificationObserver
 
 # ------------------------------------------------------------ repositorios
 notification_repository = InMemoryNotificationRepository()
 audit_log_repository = InMemoryAuditLogRepository()
-certificate_issuer = InMemoryCertificateIssuer()          # stub (fase State)
 learning_profile_repository = InMemoryLearningProfileRepository()
+assessment_repository = InMemoryAssessmentRepository()
+live_session_repository = InMemoryLiveSessionRepository()
+certificate_repository = InMemoryCertificateRepository()
+video_conference = JitsiAdapter()                         # Adapter simulado
 
 
 # ------------------------------------------------------------- adaptadores
@@ -68,6 +89,32 @@ def make_course_members_resolver(courses: CourseRepository):
         course = courses.get_by_id(course_id)
         return list(course.enrolled_students) if course is not None else []
     return members
+
+
+class CourseCatalogAdapter:
+    """Adapta `CourseRepository` al puerto `CourseCatalogPort` que usan
+    evaluaciones, clases en vivo y certificados."""
+
+    def __init__(self, courses: CourseRepository):
+        self._courses = courses
+
+    def get_course_info(self, course_id: str) -> Optional[CourseInfo]:
+        course = self._courses.get_by_id(course_id)
+        if course is None:
+            return None
+        details = course.get_details()
+        return CourseInfo(
+            course_id=course.course_id,
+            title=course.title,
+            instructor_id=course.instructor_id,
+            enrolled_students=frozenset(course.enrolled_students),
+            has_certificate=bool(details.get("certificate")),
+        )
+
+
+course_catalog = CourseCatalogAdapter(course_repository)
+# Emisor real de certificados (CertificateIssuerPort del observer).
+certificate_issuer = CertificateService(certificate_repository, course_catalog)
 
 
 # --------------------------------------------------------------------- bus
@@ -150,14 +197,31 @@ def make_process_payment_use_case() -> ProcessPaymentUseCase:
     )
 
 
+def make_assessment_service() -> AssessmentService:
+    return AssessmentService(assessment_repository, course_catalog, event_bus=event_bus)
+
+
+def make_live_session_service() -> LiveSessionService:
+    return LiveSessionService(
+        live_session_repository, course_catalog, video_conference, event_bus=event_bus
+    )
+
+
+def make_certificate_service() -> CertificateService:
+    return certificate_issuer
+
+
 # ----------------------------------------------------------------- pruebas
 def reset_state() -> None:
     """Vacía los repositorios en memoria de este contenedor y re-cablea el
     bus con sus observadores por defecto (misma instancia de bus)."""
     notification_repository.clear()
     audit_log_repository.clear()
-    certificate_issuer.clear()
+    certificate_repository.clear()
     learning_profile_repository.clear()
+    assessment_repository.clear()
+    live_session_repository.clear()
+    video_conference.clear()
     wire_event_bus(
         event_bus,
         courses=course_repository,

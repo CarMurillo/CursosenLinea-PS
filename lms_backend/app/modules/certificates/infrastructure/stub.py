@@ -1,8 +1,9 @@
-"""Emisor de certificados en memoria (STUB provisional).
+"""Emisor de certificados en memoria (STUB, solo para pruebas aisladas).
 
-Cumple `CertificateIssuerPort` para que el Observer funcione ya. La fase
-patron-state lo reemplaza por el servicio/repositorio real del módulo
-certificates (y lo cablea en `container.py`).
+La aplicación ya NO lo usa: `container.py` cablea el servicio real
+`CertificateService` (application/services.py) con su repositorio. Se
+conserva porque `tests/test_observer.py` prueba el observer contra este
+doble de prueba que cumple `CertificateIssuerPort`.
 """
 
 import threading

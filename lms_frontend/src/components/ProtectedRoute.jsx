@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
 
+// `role` acepta un rol ("student") o una lista (["instructor", "admin"]).
 const ProtectedRoute = ({ children, role }) => {
     const { user, isAuthenticated } = useAuth();
 
@@ -8,7 +9,9 @@ const ProtectedRoute = ({ children, role }) => {
         return <Navigate to="/login" replace />;
     }
 
-    if (role && user?.role !== role) {
+    const allowed = Array.isArray(role) ? role : role ? [role] : null;
+
+    if (allowed && !allowed.includes(user?.role)) {
         return <Navigate to="/unauthorized" replace />;
     }
 

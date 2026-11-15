@@ -117,6 +117,7 @@ const Register = () => {
                     required
                 />
 
+                {/* El registro público solo admite student/instructor (admin => 403). */}
                 <select
                     name="role"
                     value={form.role}
@@ -128,10 +129,6 @@ const Register = () => {
 
                     <option value="instructor">
                         Instructor
-                    </option>
-
-                    <option value="admin">
-                        Administrador
                     </option>
                 </select>
 

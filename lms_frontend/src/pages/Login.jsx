@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/auth-context";
 import { login } from "../services/authService";
 
 const Login = () => {
@@ -8,6 +8,8 @@ const Login = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [searchParams] = useSearchParams();
+    const expired = searchParams.get("expired") === "1";
 
     const { loginUser } = useAuth();
     const navigate = useNavigate();
@@ -37,8 +39,6 @@ const Login = () => {
 
         } catch (error) {
 
-            console.error(error);
-
             setError(
                 error.response?.data?.detail ||
                 "Correo o contraseña incorrectos"
@@ -57,6 +57,12 @@ const Login = () => {
                 <h1>LMS</h1>
 
                 <h2>Iniciar sesión</h2>
+
+                {expired && !error && (
+                    <p className="error">
+                        Tu sesión expiró o no es válida. Inicia sesión de nuevo.
+                    </p>
+                )}
 
                 {error && (
                     <p className="error">

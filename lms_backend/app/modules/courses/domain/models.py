@@ -1,7 +1,7 @@
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import List
+from typing import List, Optional
 import uuid
 
 from app.modules.courses.domain.composite import CourseContent
@@ -24,6 +24,9 @@ class Course(ABC):
         self.title = title
         self.instructor = instructor
         self.price = price
+        # Identidad del dueño (user.id del instructor que lo creó).
+        self.instructor_id: Optional[str] = None
+        # Guarda user.id de los estudiantes inscritos (no nombres).
         self.enrolled_students: List[str] = []
         self.content = CourseContent(title)
 
@@ -77,6 +80,7 @@ class VideoCourse(Course):
             "id": self.course_id,
             "title": self.title,
             "instructor": self.instructor,
+            "instructor_id": self.instructor_id,
             "price": self.price,
             "type": self.get_course_type(),
             "badge": "bg-primary"
@@ -97,6 +101,7 @@ class LiveClassCourse(Course):
             "id": self.course_id,
             "title": self.title,
             "instructor": self.instructor,
+            "instructor_id": self.instructor_id,
             "price": self.price,
             "type": self.get_course_type(),
             "badge": "bg-danger"

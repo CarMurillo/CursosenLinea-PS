@@ -75,8 +75,19 @@ def test_proxy_no_bloquea_no_premium():
     assert "title" in proxy.to_dict()
 
 
+class _AlwaysPaid:
+    """Verificador de pagos falso: todo pago está aprobado."""
+    def has_approved_payment(self, user_id, course_id):
+        return True
+
+
 def test_facade_cuatro_operaciones():
-    facade, course = _premium_course()
+    # Cambio de contrato (B2): un curso premium exige pago aprobado para
+    # inscribir, así que la fachada recibe un verificador de pagos.
+    repo = InMemoryCourseRepository()
+    facade = CourseFacade(repo, payment_checker=_AlwaysPaid())
+    course = facade.create_course(CourseCreateDTO(
+        title="Py", instructor="A", price=10, course_type="video", premium=True))
     assert len(facade.list_courses()) == 1
     clone = facade.clone_course(course.course_id, "Copia X")
     assert clone.course_id != course.course_id and clone.title == "Copia X"
@@ -94,17 +105,26 @@ def _login(client, email, role, first="Ana", last="Perez"):
 
 
 def test_endpoint_clone_y_proxy(client):
+    # Cambio de contrato (B2/B4): crear/clonar/agregar lecciones exige token
+    # de instructor; la inscripción usa el token y exige pago en premium.
     inst = _login(client, "i@x.com", "instructor", "Ins", "Tructor")
     alum = _login(client, "a@x.com", "student")
     r = client.post("/courses/", json={"title":"Py","instructor":"A","price":100,
-                                       "course_type":"video","premium":True})
+                                       "course_type":"video","premium":True}, headers=inst)
     cid = r.json()["id"]
     assert r.json()["premium"] is True
-    assert client.post(f"/courses/{cid}/clone", json={}).status_code == 201
+    assert client.post(f"/courses/{cid}/clone", json={}, headers=inst).status_code == 201
     assert client.post(f"/courses/{cid}/content/lessons", json={
-        "module_title":"M","title":"L","media_id":"1","provider":"vimeo"}).status_code == 201
+        "module_title":"M","title":"L","media_id":"1","provider":"vimeo"},
+        headers=inst).status_code == 201
     assert client.get(f"/courses/{cid}/content").status_code == 401
     assert client.get(f"/courses/{cid}/content", headers=alum).status_code == 403
     assert client.get(f"/courses/{cid}/content", headers=inst).status_code == 200
-    client.post(f"/courses/{cid}/enroll", json={"student_name": "Ana Perez"})
+    # Sin pago: la inscripción se rechaza y el contenido sigue bloqueado.
+    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 403
+    pay = client.post("/payments/process", json={"amount": 120, "currency": "USD",
+        "gateway": "stripe", "course_id": cid}, headers=alum)
+    assert pay.status_code == 200
+    # Fase 2 (Observer): el pago aprobado inscribe automáticamente -> 409.
+    assert client.post(f"/courses/{cid}/enroll", headers=alum).status_code == 409
     assert client.get(f"/courses/{cid}/content", headers=alum).status_code == 200

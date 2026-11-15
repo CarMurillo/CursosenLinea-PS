@@ -9,8 +9,7 @@ from app.modules.auth.application.dtos import UserRegisterDTO, UserResponseDTO
 from app.modules.auth.domain.factories import UserCreationService
 from app.modules.auth.domain.models import Role
 from app.modules.auth.infrastructure.security import hash_password, issue_token, verify_password
-from app.shared.infrastructure.models import UserModel
-from app.users.domain.repositories import UserRepository
+from app.users.domain.repositories import UserRecord, UserRepository
 
 
 class EmailAlreadyRegisteredError(Exception):
@@ -21,7 +20,12 @@ class InvalidCredentialsError(Exception):
     pass
 
 
-def _to_response_dto(user_model: UserModel) -> UserResponseDTO:
+def normalize_email(email: str) -> str:
+    """Correo canónico: sin espacios y en minúsculas."""
+    return (email or "").strip().lower()
+
+
+def _to_response_dto(user_model: UserRecord) -> UserResponseDTO:
     return UserResponseDTO(
         user_id=user_model.id,
         full_name=f"{user_model.first_name} {user_model.last_name}",
@@ -37,8 +41,9 @@ class RegisterUserUseCase:
         self.repository = repository
 
     def execute(self, dto: UserRegisterDTO) -> UserResponseDTO:
-        if self.repository.get_by_email(dto.email):
-            raise EmailAlreadyRegisteredError(dto.email)
+        email = normalize_email(dto.email)
+        if self.repository.get_by_email(email):
+            raise EmailAlreadyRegisteredError(email)
 
         # --- PATRÓN GOF: ABSTRACT FACTORY ---
         # UserCreationService elige la fábrica concreta (Student/Instructor/
@@ -48,22 +53,14 @@ class RegisterUserUseCase:
             role=dto.role,
             first_name=dto.first_name,
             last_name=dto.last_name,
-            email=dto.email,
+            email=email,
             password_hash=hash_password(dto.password),
             bio=dto.bio,
             specialization=dto.specialization,
         )
 
-        user_model = UserModel(
-            id=domain_user.user_id,
-            first_name=domain_user.first_name,
-            last_name=domain_user.last_name,
-            email=domain_user.email,
-            hashed_password=domain_user.hashed_password,
-            role=domain_user.role.value,
-            is_active=domain_user.is_active,
-        )
-        saved = self.repository.save(user_model)
+        # El adaptador de persistencia mapea la entidad de dominio a su modelo.
+        saved = self.repository.save(domain_user)
         return _to_response_dto(saved)
 
 
@@ -72,8 +69,8 @@ class LoginUseCase:
         self.repository = repository
 
     def execute(self, email: str, password: str) -> tuple[str, UserResponseDTO]:
-        user_model = self.repository.get_by_email(email)
-        if not user_model or not verify_password(password, user_model.hashed_password):
+        user_model = self.repository.get_by_email(normalize_email(email))
+        if not user_model or not user_model.is_active or not verify_password(password, user_model.hashed_password):
             raise InvalidCredentialsError()
 
         token = issue_token(user_model.id)

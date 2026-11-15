@@ -1,5 +1,29 @@
-import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/auth-context";
+
+// Enlaces por rol. Las rutas están protegidas por rol en App.jsx.
+const LINKS = {
+    student: [
+        { to: "/student", label: "Dashboard", end: true },
+        { to: "/student/courses", label: "Explorar cursos" },
+        { to: "/student/my-courses", label: "Mis cursos" },
+        { to: "/student/recommendations", label: "Recomendaciones" },
+        { to: "/student/certificates", label: "Certificados" },
+    ],
+    instructor: [
+        { to: "/instructor", label: "Dashboard", end: true },
+        { to: "/instructor/courses", label: "Mis cursos" },
+        { to: "/instructor/create-course", label: "Crear curso" },
+        { to: "/patterns", label: "Laboratorio de patrones" },
+    ],
+    admin: [
+        { to: "/admin", label: "Dashboard", end: true },
+        { to: "/admin/users", label: "Usuarios" },
+        { to: "/admin/courses", label: "Cursos" },
+        { to: "/admin/audit-log", label: "Auditoría" },
+        { to: "/patterns", label: "Laboratorio de patrones" },
+    ],
+};
 
 const Sidebar = () => {
     const { user } = useAuth();
@@ -13,53 +37,15 @@ const Sidebar = () => {
 
             <h2>LMS</h2>
 
-            {user.role === "student" && (
-                <>
-                    <Link to="/student">
-                        Dashboard
-                    </Link>
-
-                    <Link to="/student/courses">
-                        Explorar cursos
-                    </Link>
-
-                    <Link to="/student/my-courses">
-                        Mis cursos
-                    </Link>
-                </>
-            )}
-
-            {user.role === "instructor" && (
-                <>
-                    <Link to="/instructor">
-                        Dashboard
-                    </Link>
-
-                    <Link to="/instructor/courses">
-                        Mis cursos
-                    </Link>
-
-                    <Link to="/instructor/create-course">
-                        Crear curso
-                    </Link>
-                </>
-            )}
-
-            {user.role === "admin" && (
-                <>
-                    <Link to="/admin">
-                        Dashboard
-                    </Link>
-
-                    <Link to="/admin/users">
-                        Usuarios
-                    </Link>
-
-                    <Link to="/admin/courses">
-                        Cursos
-                    </Link>
-                </>
-            )}
+            {(LINKS[user.role] || []).map((link) => (
+                <NavLink
+                    key={link.to}
+                    to={link.to}
+                    end={link.end}
+                >
+                    {link.label}
+                </NavLink>
+            ))}
 
         </aside>
     );

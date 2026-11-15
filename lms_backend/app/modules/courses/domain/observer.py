@@ -1,32 +1,41 @@
+"""
+Módulo de COMPATIBILIDAD del patrón Observer.
 
-from abc import ABC, abstractmethod
-from typing import List
+La implementación real vive en:
+- `app/shared/domain/events.py` (EventType, DomainEvent, Observer, Subject).
+- `app/shared/domain/observers.py` (EmailNotificationObserver, AuditLogObserver).
 
+Se conservan los nombres históricos importados desde aquí; `LoggingObserver`
+es un alias de `AuditLogObserver`.
+"""
 
-class Observer(ABC):
-    @abstractmethod
-    def update(self, student_name: str, course_title: str) -> None:
-        pass
+from app.shared.domain.events import (
+    DomainEvent,
+    EventPublisher,
+    EventType,
+    Observer,
+    Subject,
+    publish_event,
+)
+from app.shared.domain.observers import (
+    AuditEntry,
+    AuditLogObserver,
+    AuditLogRepository,
+    EmailNotificationObserver,
+)
 
+LoggingObserver = AuditLogObserver
 
-class Subject:
-    def __init__(self):
-        self._observers: List[Observer] = []
-
-    def attach(self, observer: Observer) -> None:
-        self._observers.append(observer)
-
-    def notify(self, student_name: str, course_title: str) -> None:
-        for observer in self._observers:
-            observer.update(student_name, course_title)
-
-
-# --- Observers Concretos ---
-class EmailNotificationObserver(Observer):
-    def update(self, student_name: str, course_title: str) -> None:
-        print(f"  Enviando correo a {student_name}: Inscripción confirmada a '{course_title}'.")
-
-
-class LoggingObserver(Observer):
-    def update(self, student_name: str, course_title: str) -> None:
-        print(f"  [AUDITORÍA] El estudiante {student_name} se matriculó en '{course_title}'.")
+__all__ = [
+    "AuditEntry",
+    "AuditLogObserver",
+    "AuditLogRepository",
+    "DomainEvent",
+    "EmailNotificationObserver",
+    "EventPublisher",
+    "EventType",
+    "LoggingObserver",
+    "Observer",
+    "Subject",
+    "publish_event",
+]

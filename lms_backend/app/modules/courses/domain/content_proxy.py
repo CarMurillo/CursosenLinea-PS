@@ -8,15 +8,25 @@ class ContentAccessDenied(PermissionError):
     """El estudiante no tiene derecho a ver el contenido solicitado."""
 
 
+DEFAULT_DENIED_MESSAGE = (
+    "Debes adquirir el curso Premium para acceder a este contenido."
+)
+
+
 class AccessPolicy(Protocol):
     def can_access(self, student_id: str | None, course) -> bool: ...
 
 
 class EnrolledStudentPolicy:
-    """Acceso permitido solo si el estudiante está inscrito en el curso."""
+    """Acceso permitido solo si el estudiante está inscrito en el curso.
+
+    Compara por identificador de usuario (user.id): `course.enrolled_students`
+    guarda ids, no nombres, así dos usuarios homónimos no colisionan.
+    """
 
     def can_access(self, student_id: str | None, course) -> bool:
-        return student_id is not None and student_id in course.enrolled_students
+        user_id = student_id
+        return user_id is not None and user_id in course.enrolled_students
 
 
 class ProtectedContentProxy(ContentComponent):
@@ -35,6 +45,7 @@ class ProtectedContentProxy(ContentComponent):
         student_id: str | None,
         policy: AccessPolicy,
         requires_access: bool = True,
+        denied_message: str = DEFAULT_DENIED_MESSAGE,
     ):
         self._real_factory = real_factory
         self._real: ContentComponent | None = None
@@ -42,14 +53,13 @@ class ProtectedContentProxy(ContentComponent):
         self._student_id = student_id
         self._policy = policy
         self._requires_access = requires_access
+        self._denied_message = denied_message
 
     def _check(self) -> None:
         if self._requires_access and not self._policy.can_access(
             self._student_id, self._course
         ):
-            raise ContentAccessDenied(
-                "Debes adquirir el curso Premium para acceder a este contenido."
-            )
+            raise ContentAccessDenied(self._denied_message)
 
     def _subject(self) -> ContentComponent:
         self._check()
@@ -62,3 +72,11 @@ class ProtectedContentProxy(ContentComponent):
 
     def to_dict(self) -> dict:
         return self._subject().to_dict()
+
+    def accept(self, visitor):
+        """
+        VISITOR + PROXY: valida el acceso y solo entonces delega el
+        visitante al sujeto real. Sin acceso lanza ContentAccessDenied y
+        el visitante no recorre nada.
+        """
+        return self._subject().accept(visitor)

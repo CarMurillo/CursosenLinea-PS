@@ -1,111 +1,108 @@
-import { useEffect, useState } from "react";
-import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/Sidebar";
+import { Link } from "react-router-dom";
+
+import Layout from "../../components/Layout";
 import CourseCard from "../../components/CourseCard";
+import ProgressBar from "../../components/ProgressBar";
+import { Empty, ErrorState, Loading } from "../../components/Status";
+import { useResource } from "../../hooks/useResource";
+import { getMyEnrolledCourses } from "../../services/courseService";
+import { getMyProgress } from "../../services/progressService";
 
-import {
-    getCourses,
-    enrollCourse
-} from "../../services/courseService";
+// F3: solo los cursos inscritos, cada uno con su progreso (Visitor).
+const loadMyCourses = async () => {
+    const courses = await getMyEnrolledCourses();
 
-import { useAuth } from "../../context/AuthContext";
+    const progress = await Promise.all(
+        courses.map((course) =>
+            getMyProgress(course.id).catch(() => null)
+        )
+    );
+
+    return courses.map((course, index) => ({
+        course,
+        progress: progress[index],
+    }));
+};
 
 const StudentMyCourses = () => {
 
-    const [courses, setCourses] = useState([]);
-    const [error, setError] = useState("");
+    const { data, error, loading, reload } = useResource(loadMyCourses);
 
-    const { user } = useAuth();
+    const renderBody = () => {
+        if (loading && !data) {
+            return <Loading text="Cargando tus cursos..." />;
+        }
 
-    useEffect(() => {
-
-        loadCourses();
-
-    }, []);
-
-    const loadCourses = async () => {
-
-        try {
-
-            const data = await getCourses();
-
-            setCourses(data);
-
-        } catch (error) {
-
-            console.error(error);
-
-            setError(
-                "No se pudieron cargar los cursos"
+        if (error) {
+            return (
+                <ErrorState
+                    error={error}
+                    fallback="No se pudieron cargar tus cursos."
+                    onRetry={reload}
+                />
             );
         }
-    };
 
-    const handleEnroll = async (course) => {
-
-        try {
-
-            await enrollCourse(
-                course.id,
-                user.full_name
-            );
-
-            alert(
-                `Te has inscrito en ${course.title}`
-            );
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert(
-                error.response?.data?.detail ||
-                "No se pudo realizar la inscripción"
+        if (!data || data.length === 0) {
+            return (
+                <Empty>
+                    Aún no estás inscrito en ningún curso.{" "}
+                    <Link to="/student/courses">Explorar cursos</Link>
+                </Empty>
             );
         }
+
+        return (
+            <div className="course-grid">
+
+                {data.map(({ course, progress }) => (
+
+                    <CourseCard
+                        key={course.id}
+                        course={course}
+                    >
+                        {progress ? (
+                            <ProgressBar progress={progress} />
+                        ) : (
+                            <span className="muted">
+                                Progreso no disponible.
+                            </span>
+                        )}
+
+                        <div className="actions">
+                            <Link
+                                className="btn-link"
+                                to={`/student/course/${course.id}/content`}
+                            >
+                                Contenido
+                            </Link>
+
+                            <Link
+                                className="btn-link"
+                                to={`/student/course/${course.id}/assessments`}
+                            >
+                                Evaluaciones
+                            </Link>
+
+                            <Link
+                                className="btn-link"
+                                to={`/student/course/${course.id}/live`}
+                            >
+                                Clases en vivo
+                            </Link>
+                        </div>
+                    </CourseCard>
+
+                ))}
+
+            </div>
+        );
     };
 
     return (
-        <div className="layout">
-
-            <Navbar />
-
-            <div className="content-wrapper">
-
-                <Sidebar />
-
-                <main className="main-content">
-
-                    <h1>
-                        Cursos Matriculados
-                    </h1>
-
-                    {error && (
-                        <p className="error">
-                            {error}
-                        </p>
-                    )}
-
-                    <div className="course-grid">
-
-                        {courses.map((course) => (
-
-                            <CourseCard
-                                key={course.id}
-                                course={course}
-                                showEnroll={true}
-                                onEnroll={handleEnroll}
-                            />
-
-                        ))}
-
-                    </div>
-
-                </main>
-
-            </div>
-
-        </div>
+        <Layout title="Mis cursos">
+            {renderBody()}
+        </Layout>
     );
 };
 

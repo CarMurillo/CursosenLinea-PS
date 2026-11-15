@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.modules.auth.application.dtos import UserRegisterDTO, UserResponseDTO
+from app.modules.auth.domain.models import Role
 from app.modules.auth.application.use_cases import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
@@ -13,6 +14,9 @@ from app.shared.infrastructure.database import get_db
 from app.shared.infrastructure.user_repository import SqlAlchemyUserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Roles que se pueden auto-registrar desde el endpoint público.
+PUBLIC_ROLES = {Role.STUDENT, Role.INSTRUCTOR}
 
 
 class LoginRequest(BaseModel):
@@ -28,7 +32,15 @@ class TokenResponse(BaseModel):
 
 @router.post("/register", response_model=UserResponseDTO, status_code=201)
 def register(dto: UserRegisterDTO, db: Session = Depends(get_db)):
-    """Registra un perfil (estudiante/instructor/admin) vía el Abstract Factory."""
+    """Registra un perfil (estudiante/instructor) vía el Abstract Factory.
+
+    El registro público NO permite crear administradores (se crean por seed).
+    """
+    if dto.role not in PUBLIC_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="El registro público solo permite los roles student e instructor.",
+        )
     use_case = RegisterUserUseCase(SqlAlchemyUserRepository(db))
     try:
         return use_case.execute(dto)

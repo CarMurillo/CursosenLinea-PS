@@ -50,6 +50,16 @@ class CourseDecorator(Course, ABC):
 
 
     @property
+    def instructor_id(self):
+        return self._wrapped_course.instructor_id
+
+
+    @instructor_id.setter
+    def instructor_id(self, value):
+        self._wrapped_course.instructor_id = value
+
+
+    @property
     def price(self):
         return self._wrapped_course.price
 

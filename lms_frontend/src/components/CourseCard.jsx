@@ -9,7 +9,10 @@ const CourseCard = ({
     showEnroll = false,
     showClone = false,
     showPay = false,
-    showContent = false
+    showContent = false,
+
+    busy = false,
+    children
 }) => {
 
     return (
@@ -29,7 +32,12 @@ const CourseCard = ({
             </p>
 
             <p>
-                Precio: ${course.price}
+                Precio: {course.price > 0 ? `$${course.price}` : "Gratis"}
+                {course.premium && course.base_price !== undefined && (
+                    <span className="muted">
+                        {" "}(base ${course.base_price} + 20% premium)
+                    </span>
+                )}
             </p>
 
 
@@ -49,9 +57,11 @@ const CourseCard = ({
 
             {showPay && (
 
-                <div>
+                <div className="actions">
 
                     <button
+                        className="btn-primary"
+                        disabled={busy}
                         onClick={() =>
                             onPay(
                                 course,
@@ -64,6 +74,8 @@ const CourseCard = ({
 
 
                     <button
+                        className="btn-primary"
+                        disabled={busy}
                         onClick={() =>
                             onPay(
                                 course,
@@ -81,6 +93,8 @@ const CourseCard = ({
             {showEnroll && (
 
                 <button
+                    className="btn-primary"
+                    disabled={busy}
                     onClick={() =>
                         onEnroll(course)
                     }
@@ -93,6 +107,8 @@ const CourseCard = ({
             {showClone && (
 
                 <button
+                    className="btn-secondary"
+                    disabled={busy}
                     onClick={() =>
                         onClone(course)
                     }
@@ -105,6 +121,7 @@ const CourseCard = ({
             {showContent && (
 
                 <button
+                    className="btn-secondary"
                     onClick={() =>
                         onContent(course)
                     }
@@ -112,6 +129,8 @@ const CourseCard = ({
                     Ver contenido
                 </button>
             )}
+
+            {children}
 
         </div>
     );

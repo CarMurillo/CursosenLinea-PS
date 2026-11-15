@@ -6,19 +6,22 @@ export const getCourses = async () => {
     return response.data;
 };
 
+// El instructor se deriva del token en el backend (no se envía `instructor`).
 export const createCourse = async (courseData) => {
     const response = await api.post("/courses/", courseData);
     return response.data;
 };
 
-export const enrollCourse = async (courseId, studentName) => {
-    const response = await api.post(
-        `/courses/${courseId}/enroll`,
-        {
-            student_name: studentName,
-        }
-    );
+// F3: cursos en los que el usuario autenticado está inscrito.
+export const getMyEnrolledCourses = async () => {
+    const response = await api.get("/courses/me/enrolled");
+    return response.data;
+};
 
+// Inscripción por token, sin cuerpo. 409 si ya está inscrito; 403 si el
+// curso es de pago y no hay pago aprobado.
+export const enrollCourse = async (courseId) => {
+    const response = await api.post(`/courses/${courseId}/enroll`);
     return response.data;
 };
 
@@ -38,6 +41,15 @@ export const cloneCourse = async (courseId, newTitle = "") => {
 export const getCourseContent = async (courseId) => {
     const response = await api.get(
         `/courses/${courseId}/content`
+    );
+
+    return response.data;
+};
+
+// Visitor: resumen (duración total, lecciones por tipo, temario).
+export const getCourseSummary = async (courseId) => {
+    const response = await api.get(
+        `/courses/${courseId}/content/summary`
     );
 
     return response.data;

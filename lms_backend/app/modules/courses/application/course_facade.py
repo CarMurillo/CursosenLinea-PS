@@ -1,13 +1,18 @@
+from typing import Optional
+
 from app.modules.courses.application.dtos import CourseCreateDTO
 from app.modules.courses.application.use_cases import (
+    ApprovedPaymentChecker,
     CloneCourseUseCase,
     CourseNotFoundError,
     EnrollStudentUseCase,
     ListCoursesUseCase,
+    ListEnrolledCoursesUseCase,
     PublishCourseUseCase,
 )
 from app.modules.courses.domain.models import Course
 from app.modules.courses.domain.ports import CourseRepository
+from app.shared.domain.events import EventPublisher
 
 
 class CourseFacade:
@@ -15,14 +20,26 @@ class CourseFacade:
     Facade: interfaz única y simplificada para las operaciones de cursos.
 
     Depende del PUERTO CourseRepository (no del adaptador concreto), de modo
-    que la capa de aplicación no importa nada de infraestructura.
+    que la capa de aplicación no importa nada de infraestructura. El
+    verificador de pagos y el bus de eventos (Observer) se inyectan desde el
+    composition root; ambos son opcionales.
     """
 
-    def __init__(self, repository: CourseRepository):
+    def __init__(
+        self,
+        repository: CourseRepository,
+        payment_checker: Optional[ApprovedPaymentChecker] = None,
+        event_bus: Optional[EventPublisher] = None,
+    ):
         self._repository = repository
+        self._payment_checker = payment_checker
+        self._event_bus = event_bus
 
     def list_courses(self) -> list[Course]:
         return ListCoursesUseCase(self._repository).execute()
+
+    def list_enrolled_courses(self, user_id: str) -> list[Course]:
+        return ListEnrolledCoursesUseCase(self._repository).execute(user_id)
 
     def get_course(self, course_id: str) -> Course:
         course = self._repository.get_by_id(course_id)
@@ -30,8 +47,15 @@ class CourseFacade:
             raise CourseNotFoundError(course_id)
         return course
 
-    def create_course(self, dto: CourseCreateDTO) -> Course:
-        return PublishCourseUseCase(self._repository).execute(dto)
+    def create_course(
+        self,
+        dto: CourseCreateDTO,
+        instructor_id: str | None = None,
+        instructor_name: str | None = None,
+    ) -> Course:
+        return PublishCourseUseCase(
+            self._repository, event_bus=self._event_bus
+        ).execute(dto, instructor_id, instructor_name)
 
     def clone_course(
         self, course_id: str, new_title: str | None = None
@@ -40,7 +64,14 @@ class CourseFacade:
             course_id, new_title
         )
 
-    def enroll_student(self, course_id: str, student_name: str) -> Course:
-        return EnrollStudentUseCase(self._repository).execute(
-            course_id, student_name
-        )
+    def enroll_student(
+        self,
+        course_id: str,
+        user_id: str,
+        student_name: str | None = None,
+    ) -> Course:
+        return EnrollStudentUseCase(
+            self._repository,
+            payment_checker=self._payment_checker,
+            event_bus=self._event_bus,
+        ).execute(course_id, user_id, student_name)

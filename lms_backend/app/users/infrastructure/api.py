@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth.application.dtos import UserResponseDTO
 from app.modules.auth.domain.models import Role
+from app.shared.infrastructure.auth_deps import require_role
 from app.shared.infrastructure.database import get_db
 from app.shared.infrastructure.user_repository import SqlAlchemyUserRepository
 
@@ -12,7 +13,11 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/", response_model=List[UserResponseDTO])
-def list_users(db: Session = Depends(get_db)):
+def list_users(
+    db: Session = Depends(get_db),
+    _admin=Depends(require_role("admin")),
+):
+    """Listado de usuarios: solo administradores."""
     repo = SqlAlchemyUserRepository(db)
     return [
         UserResponseDTO(

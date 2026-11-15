@@ -1,16 +1,28 @@
-# React + Vite
+# lms_frontend: interfaz del LMS (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19, Vite 8, react-router-dom 7 y axios. Consume la API de `lms_backend`.
+Ver el [`README.md` raíz](../README.md) para el flujo completo y las cuentas de demostración.
 
-Currently, two official plugins are available:
+## Ejecutar
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm run lint       # oxlint
+npm run build      # genera dist/
+```
 
-## React Compiler
+Requiere Node.js 22 (o 20.19+). El backend debe estar corriendo; la URL base se configura con
+`VITE_API_URL` (por defecto `http://127.0.0.1:8000`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Estructura
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- `src/services/`: un servicio por recurso de la API (`api.js` con axios, `courseService.js`,
+  `paymentService.js`, `assessmentService.js`, `liveSessionService.js`, `progressService.js`,
+  `notificationService.js`, `recommendationService.js`, `certificateService.js`, …). Las páginas no
+  usan URLs sueltas.
+- `src/services/api.js`: añade el token `Bearer` y, ante un 401, cierra sesión y redirige a `/login`.
+- `src/pages/student/`, `src/pages/instructor/`, `src/pages/admin/`: páginas por rol
+  (`PatternLab.jsx` demuestra Observer, State y Visitor).
+- `src/context/`: sesión (`AuthContext`), guardada en `localStorage`.
+- `src/components/`: `Navbar` (campana de notificaciones), `Sidebar`, `ProtectedRoute`, etc.

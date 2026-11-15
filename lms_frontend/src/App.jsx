@@ -2,10 +2,12 @@ import {
     BrowserRouter,
     Routes,
     Route,
-    Navigate
+    Navigate,
+    Link
 } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
+import { useAuth } from "./context/auth-context";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -15,28 +17,68 @@ import Register from "./pages/Register";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentCourses from "./pages/student/StudentCourses";
 import StudentMyCourses from "./pages/student/StudentMyCourses";
+import CourseContent from "./pages/student/CourseContent";
+import StudentAssessments from "./pages/student/StudentAssessments";
+import TakeAssessment from "./pages/student/TakeAssessment";
+import StudentLiveSessions from "./pages/student/StudentLiveSessions";
+import StudentCertificates from "./pages/student/StudentCertificates";
+import StudentRecommendations from "./pages/student/StudentRecommendations";
 
 import InstructorDashboard from "./pages/instructor/InstructorDashboard";
 import CreateCourse from "./pages/instructor/CreateCourse";
 import ManageCourses from "./pages/instructor/ManageCourses";
+import ManageContent from "./pages/instructor/ManageContent";
+import ManageAssessments from "./pages/instructor/ManageAssessments";
+import ManageLiveSessions from "./pages/instructor/ManageLiveSessions";
+import PatternLab from "./pages/instructor/PatternLab";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
+import AdminCourses from "./pages/admin/AdminCourses";
+import AuditLog from "./pages/admin/AuditLog";
 
-import CourseContent from "./pages/student/CourseContent";
-
-import ManageConten from "./pages/instructor/ManageContent";
+const HOME_BY_ROLE = {
+    student: "/student",
+    instructor: "/instructor",
+    admin: "/admin",
+};
 
 const Unauthorized = () => {
+    const { user } = useAuth();
+
     return (
-        <div>
-            <h1>Acceso no autorizado</h1>
-            <p>
-                No tienes permisos para acceder a esta página.
-            </p>
+        <div className="login-container">
+            <div className="login-form">
+                <h1>Acceso no autorizado</h1>
+                <p>
+                    No tienes permisos para acceder a esta página.
+                </p>
+                <Link to={HOME_BY_ROLE[user?.role] || "/login"}>
+                    Volver al inicio
+                </Link>
+            </div>
         </div>
     );
 };
+
+// Ruta inicial: lleva al panel del rol si hay sesión; si no, al login.
+const Home = () => {
+    const { user, isAuthenticated } = useAuth();
+
+    return (
+        <Navigate
+            to={isAuthenticated ? HOME_BY_ROLE[user?.role] || "/login" : "/login"}
+            replace
+        />
+    );
+};
+
+// Envuelve una página en ProtectedRoute con el rol (o roles) indicado.
+const guard = (role, element) => (
+    <ProtectedRoute role={role}>
+        {element}
+    </ProtectedRoute>
+);
 
 const App = () => {
 
@@ -49,148 +91,51 @@ const App = () => {
 
                     {/* Públicas */}
 
-                    <Route
-                        path="/login"
-                        element={<Login />}
-                    />
-
-                    <Route
-                        path="/register"
-                        element={<Register />}
-                    />
-
-                    <Route
-                        path="/unauthorized"
-                        element={<Unauthorized />}
-                    />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/unauthorized" element={<Unauthorized />} />
 
                     {/* STUDENT */}
 
-                    <Route
-                        path="/student"
-                        element={
-                            <ProtectedRoute role="student">
-                                <StudentDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    <Route
-                        path="/student/courses"
-                        element={
-                            <ProtectedRoute role="student">
-                                <StudentCourses />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    <Route
-                        path="/student/my-courses"
-                        element={
-                            <ProtectedRoute role="student">
-                                <StudentMyCourses /> {/* o <StudentCourses /> mientras la creas */}
-                            </ProtectedRoute>
-                        }
-                    />
+                    <Route path="/student" element={guard("student", <StudentDashboard />)} />
+                    <Route path="/student/courses" element={guard("student", <StudentCourses />)} />
+                    <Route path="/student/my-courses" element={guard("student", <StudentMyCourses />)} />
+                    <Route path="/student/course/:courseId/content" element={guard("student", <CourseContent />)} />
+                    <Route path="/student/course/:courseId/assessments" element={guard("student", <StudentAssessments />)} />
+                    <Route path="/student/course/:courseId/live" element={guard("student", <StudentLiveSessions />)} />
+                    <Route path="/student/assessments/:assessmentId" element={guard("student", <TakeAssessment />)} />
+                    <Route path="/student/certificates" element={guard("student", <StudentCertificates />)} />
+                    <Route path="/student/recommendations" element={guard("student", <StudentRecommendations />)} />
 
                     {/* INSTRUCTOR */}
 
-                    <Route
-                        path="/instructor"
-                        element={
-                            <ProtectedRoute role="instructor">
-                                <InstructorDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
+                    <Route path="/instructor" element={guard("instructor", <InstructorDashboard />)} />
+                    <Route path="/instructor/create-course" element={guard("instructor", <CreateCourse />)} />
+                    <Route path="/instructor/courses" element={guard("instructor", <ManageCourses />)} />
+                    <Route path="/instructor/course/:courseId/content" element={guard("instructor", <ManageContent />)} />
+                    <Route path="/instructor/course/:courseId/assessments" element={guard("instructor", <ManageAssessments />)} />
+                    <Route path="/instructor/course/:courseId/live" element={guard("instructor", <ManageLiveSessions />)} />
 
-                    <Route
-                        path="/instructor/create-course"
-                        element={
-                            <ProtectedRoute role="instructor">
-                                <CreateCourse />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Laboratorio de patrones (instructor y admin) */}
 
-                    <Route
-                        path="/instructor/courses"
-                        element={
-                            <ProtectedRoute role="instructor">
-                                <ManageCourses />
-                            </ProtectedRoute>
-                        }
-                    />
+                    <Route path="/patterns" element={guard(["instructor", "admin"], <PatternLab />)} />
+                    <Route path="/instructor/patterns" element={<Navigate to="/patterns" replace />} />
 
                     {/* ADMIN */}
 
-                    <Route
-                        path="/admin"
-                        element={
-                            <ProtectedRoute role="admin">
-                                <AdminDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    <Route
-                        path="/admin/users"
-                        element={
-                            <ProtectedRoute role="admin">
-                                <Users />
-                            </ProtectedRoute>
-                        }
-                    />
+                    <Route path="/admin" element={guard("admin", <AdminDashboard />)} />
+                    <Route path="/admin/users" element={guard("admin", <Users />)} />
+                    <Route path="/admin/courses" element={guard("admin", <AdminCourses />)} />
+                    <Route path="/admin/audit-log" element={guard("admin", <AuditLog />)} />
 
                     {/* Ruta inicial */}
 
-                    <Route
-                        path="/"
-                        element={
-                            <Navigate
-                                to="/login"
-                                replace
-                            />
-                        }
-                    />
+                    <Route path="/" element={<Home />} />
 
-                    <Route
-                        path="*"
-                        element={
-                            <Navigate
-                                to="/login"
-                                replace
-                            />
-                        }
-                    />
+                    {/* F2: comodín siempre al final */}
 
-                    <Route
-                        path="/student/course/:courseId/content"
-                        element={
-                            <ProtectedRoute role="student">
-                                <CourseContent />
-                            </ProtectedRoute>
-                        }
-                    />
+                    <Route path="*" element={<Home />} />
 
-
-                    <Route
-                        path="/instructor/course/:courseId/content"
-                        element={
-                            <ProtectedRoute role="instructor">
-                                <ManageContent />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    <Route
-                        path="/instructor/patterns"
-                        element={
-                            <ProtectedRoute role="instructor">
-                                <PatternLab />
-                            </ProtectedRoute>
-                        }
-                    />
                 </Routes>
 
             </AuthProvider>

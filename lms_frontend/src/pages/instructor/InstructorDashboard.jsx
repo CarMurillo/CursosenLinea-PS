@@ -1,53 +1,45 @@
-import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/Sidebar";
-import { useAuth } from "../../context/AuthContext";
+import { Link } from "react-router-dom";
+
+import Layout from "../../components/Layout";
+import { useAuth } from "../../context/auth-context";
 
 const InstructorDashboard = () => {
 
     const { user } = useAuth();
 
     return (
-        <div className="layout">
+        <Layout
+            title={`Bienvenido, ${user?.full_name ?? ""}`}
+            subtitle="Panel del instructor."
+        >
+            <div className="dashboard-cards">
 
-            <Navbar />
-
-            <div className="content-wrapper">
-
-                <Sidebar />
-
-                <main className="main-content">
-
-                    <h1>
-                        Bienvenido, {user?.full_name}
-                    </h1>
-
+                <div className="dashboard-card">
+                    <h3>Mis cursos</h3>
                     <p>
-                        Panel del instructor.
+                        Contenido, evaluaciones y clases en vivo de tus cursos.
                     </p>
+                    <Link to="/instructor/courses">Gestionar</Link>
+                </div>
 
-                    <div className="dashboard-cards">
+                <div className="dashboard-card">
+                    <h3>Crear curso</h3>
+                    <p>
+                        Publica un nuevo curso.
+                    </p>
+                    <Link to="/instructor/create-course">Crear</Link>
+                </div>
 
-                        <div className="dashboard-card">
-                            <h3>Mis cursos</h3>
-                            <p>
-                                Consulta los cursos creados.
-                            </p>
-                        </div>
-
-                        <div className="dashboard-card">
-                            <h3>Crear curso</h3>
-                            <p>
-                                Publica un nuevo curso.
-                            </p>
-                        </div>
-
-                    </div>
-
-                </main>
+                <div className="dashboard-card">
+                    <h3>Laboratorio de patrones</h3>
+                    <p>
+                        Observer, State y Visitor contra la API real.
+                    </p>
+                    <Link to="/patterns">Abrir</Link>
+                </div>
 
             </div>
-
-        </div>
+        </Layout>
     );
 };
 

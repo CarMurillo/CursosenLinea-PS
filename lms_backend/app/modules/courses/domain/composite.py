@@ -1,7 +1,11 @@
+from typing import TYPE_CHECKING, Any
 
 from app.modules.courses.domain.content_component import (
     ContentComponent
 )
+
+if TYPE_CHECKING:
+    from app.modules.courses.domain.visitor import ContentVisitor
 
 
 class LessonModule(ContentComponent):
@@ -60,6 +64,26 @@ class LessonModule(ContentComponent):
         }
 
 
+    def as_module(self) -> "LessonModule":
+
+        return self
+
+
+    def _accept_children(self, visitor: "ContentVisitor") -> None:
+
+        for child in self._children:
+            child.accept(visitor)
+
+
+    def accept(self, visitor: "ContentVisitor") -> Any:
+        """VISITOR: visita el módulo y luego recorre sus hijos."""
+
+        visitor.visit_module(self)
+        self._accept_children(visitor)
+        visitor.leave_module(self)
+        return visitor
+
+
 class CourseContent(LessonModule):
     """
     Composite raíz.
@@ -75,6 +99,18 @@ class CourseContent(LessonModule):
         super().__init__(
             f"Contenido de {course_title}"
         )
+
+
+    def accept(self, visitor: "ContentVisitor") -> Any:
+        """
+        VISITOR: la raíz no cuenta como módulo del temario; avisa al
+        visitante con visit_course/leave_course y recorre los hijos.
+        """
+
+        visitor.visit_course(self)
+        self._accept_children(visitor)
+        visitor.leave_course(self)
+        return visitor
 
 
     def add_module(
@@ -96,16 +132,16 @@ class CourseContent(LessonModule):
         module_title: str
     ) -> LessonModule | None:
 
+        # Polimorfismo (as_module) en lugar de isinstance.
         for child in self._children:
 
+            module = child.as_module()
+
             if (
-                isinstance(
-                    child,
-                    LessonModule
-                )
-                and child.title == module_title
+                module is not None
+                and module.title == module_title
             ):
-                return child
+                return module
 
         return None
 

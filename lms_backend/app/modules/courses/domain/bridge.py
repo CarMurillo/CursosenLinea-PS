@@ -92,6 +92,11 @@ class VideoLesson(LessonContent):
 
     CONTENT_TYPE = "video"
 
+    def accept(self, visitor):
+        """VISITOR: doble despacho hacia visit_video_lesson."""
+        visitor.visit_video_lesson(self)
+        return visitor
+
     def render_content(self) -> str:
 
         url = self._provider.get_stream_url(
@@ -133,6 +138,11 @@ class VideoLesson(LessonContent):
 class InteractiveQuizLesson(LessonContent):
 
     CONTENT_TYPE = "quiz"
+
+    def accept(self, visitor):
+        """VISITOR: doble despacho hacia visit_quiz_lesson."""
+        visitor.visit_quiz_lesson(self)
+        return visitor
 
     def render_content(self) -> str:
 

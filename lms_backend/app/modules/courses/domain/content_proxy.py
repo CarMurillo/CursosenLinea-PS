@@ -67,3 +67,11 @@ class ProtectedContentProxy(ContentComponent):
 
     def to_dict(self) -> dict:
         return self._subject().to_dict()
+
+    def accept(self, visitor):
+        """
+        VISITOR + PROXY: valida el acceso y solo entonces delega el
+        visitante al sujeto real. Sin acceso lanza ContentAccessDenied y
+        el visitante no recorre nada.
+        """
+        return self._subject().accept(visitor)

@@ -7,7 +7,9 @@ class CourseCreateDTO(BaseModel):
 
     title: str
 
-    instructor: str
+    # Compatibilidad: el instructor real se deriva del token en la API.
+    # Si llega en el cuerpo se ignora en el endpoint HTTP.
+    instructor: Optional[str] = None
 
     price: float = Field(
         ge=0
@@ -24,8 +26,13 @@ class CourseCreateDTO(BaseModel):
 
 
 class EnrollmentDTO(BaseModel):
+    """Cuerpo opcional y obsoleto: la identidad sale del token.
 
-    student_name: str
+    Se conserva `student_name` solo por compatibilidad con clientes
+    antiguos; el endpoint lo ignora.
+    """
+
+    student_name: Optional[str] = None
 
 
 class CloneCourseDTO(BaseModel):
@@ -56,3 +63,9 @@ class LessonCreateDTO(BaseModel):
         "video",
         "quiz"
     ] = "video"
+
+    # Opcional: si no llega se usa la duración por defecto (10 minutos).
+    duration_minutes: Optional[int] = Field(
+        default=None,
+        gt=0,
+    )

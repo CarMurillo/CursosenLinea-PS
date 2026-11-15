@@ -1,3 +1,10 @@
+import os
+
+# Debe fijarse ANTES de importar la app: SystemConfig (Singleton) lee
+# DATABASE_URL al crearse y database.py construye el engine con ella.
+# Así pytest nunca escribe en el ./app.db real.
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -6,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.modules.courses.infrastructure.repository import course_repository
+from app.modules.payments.infrastructure.repository import payment_repository
 from app.shared.infrastructure.database import Base, get_db
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -43,7 +51,9 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _reset_course_repository():
-    """Evita que los cursos publicados en un test contaminen el siguiente."""
+    """Evita que los cursos y pagos de un test contaminen el siguiente."""
     course_repository._courses.clear()
+    payment_repository.clear()
     yield
     course_repository._courses.clear()
+    payment_repository.clear()

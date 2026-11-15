@@ -14,6 +14,14 @@ class ContentMetadata:
     label: str
     icon: str
 
+    # Un flyweight es inmutable y compartido: copiarlo (p. ej. al clonar un
+    # curso con deepcopy en Prototype) debe devolver la MISMA instancia.
+    def __copy__(self) -> "ContentMetadata":
+        return self
+
+    def __deepcopy__(self, memo) -> "ContentMetadata":
+        return self
+
 
 # Definiciones (datos puros). Se crean UNA sola vez; los objetos
 # ContentMetadata se instancian de forma perezosa en la fábrica.

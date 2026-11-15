@@ -13,10 +13,15 @@ class AccessPolicy(Protocol):
 
 
 class EnrolledStudentPolicy:
-    """Acceso permitido solo si el estudiante está inscrito en el curso."""
+    """Acceso permitido solo si el estudiante está inscrito en el curso.
+
+    Compara por identificador de usuario (user.id): `course.enrolled_students`
+    guarda ids, no nombres, así dos usuarios homónimos no colisionan.
+    """
 
     def can_access(self, student_id: str | None, course) -> bool:
-        return student_id is not None and student_id in course.enrolled_students
+        user_id = student_id
+        return user_id is not None and user_id in course.enrolled_students
 
 
 class ProtectedContentProxy(ContentComponent):

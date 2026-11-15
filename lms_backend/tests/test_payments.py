@@ -44,7 +44,10 @@ def test_stripe_adapter_traduce_a_centavos_y_normaliza_respuesta():
     assert calls == [(4999, "USD", "a@x.com")]
     assert isinstance(result, PaymentResult)
     assert result.success is True
-    assert result.transaction_id == "ch_stripe_4999"
+    # QA-4: el id simulado es único por cargo (uuid), ya no "ch_stripe_<centavos>".
+    assert result.transaction_id.startswith("ch_stripe_")
+    assert result.transaction_id != StripePaymentAdapter(SpySDK()).process_payment(
+        49.99, "USD", "a@x.com").transaction_id
     assert (result.amount, result.currency) == (49.99, "USD")
 
 
@@ -59,7 +62,10 @@ def test_wompi_adapter_usa_referencia_y_normaliza_respuesta():
     result = WompiPaymentAdapter(SpySDK()).process_payment(150000.0, "COP", "ana@u.edu")
     assert calls == [(150000.0, "REF-LMS-ana", "ana@u.edu")]
     assert result.success is True
-    assert result.transaction_id == "wompi_tx_150000"
+    # QA-4: el id simulado es único por transacción (uuid).
+    assert result.transaction_id.startswith("wompi_tx_")
+    assert result.transaction_id != WompiPaymentAdapter(SpySDK()).process_payment(
+        150000.0, "COP", "ana@u.edu").transaction_id
     assert "Wompi" in result.message
 
 

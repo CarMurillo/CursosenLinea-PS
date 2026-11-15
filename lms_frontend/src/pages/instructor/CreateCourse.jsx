@@ -33,6 +33,16 @@ const CreateCourse = () => {
 
         setNotice(null);
         setCreated(null);
+
+        // Un curso Premium con precio base 0 no se podría adquirir (422 en el backend).
+        if (form.premium && !(Number(form.price) > 0)) {
+            setNotice({
+                type: "error",
+                text: "Un curso Premium requiere un precio base mayor que 0.",
+            });
+            return;
+        }
+
         setSending(true);
 
         try {

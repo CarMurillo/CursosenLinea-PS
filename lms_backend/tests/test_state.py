@@ -451,7 +451,7 @@ def test_api_autorizacion_evaluaciones(actors):
 def test_api_clase_en_vivo_ciclo_completo_y_notificacion(actors):
     client, inst, alum, cid = actors
     r = client.post("/live-sessions", json={"course_id": cid, "title": "Clase 1",
-                    "scheduled_at": "2026-12-01T15:00:00Z"}, headers=inst)
+                    "scheduled_at": "2099-12-01T15:00:00Z"}, headers=inst)
     assert r.status_code == 201
     session = r.json()
     sid = session["id"]
@@ -481,11 +481,9 @@ def test_api_clase_en_vivo_ciclo_completo_y_notificacion(actors):
     notes = client.get("/notifications/me", headers=alum).json()
     recorded = [n for n in notes if n["event_type"] == "live_session_recorded"]
     assert len(recorded) == 1 and "Clase 1" in recorded[0]["message"]
-    audit = [e for e in container.audit_log_repository.list()
-             if e.event_type == "live_session_recorded"] \
-        if hasattr(container.audit_log_repository, "list") else None
-    if audit is not None:
-        assert len(audit) == 1
+    audit = container.audit_log_repository.list_entries(
+        event_type="live_session_recorded")
+    assert len(audit) == 1
 
 
 def test_api_autorizacion_clases_en_vivo(actors):

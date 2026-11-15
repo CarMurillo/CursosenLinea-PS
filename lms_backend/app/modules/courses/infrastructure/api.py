@@ -318,6 +318,8 @@ def _progress_proxy(course, user) -> ProtectedContentProxy:
         student_id=user.id,
         policy=EnrolledStudentPolicy(),
         requires_access=not is_owner_or_admin,
+        # También aplica a cursos gratuitos: el mensaje no habla de "Premium".
+        denied_message="Debes estar inscrito en el curso para ver o registrar tu progreso.",
     )
 
 

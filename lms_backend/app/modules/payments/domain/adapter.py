@@ -4,6 +4,7 @@ Patrón de Diseño: Adapter (Estructural)
 Principios SOLID: DIP, OCP, LSP, ISP, SRP
 """
 
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -32,7 +33,8 @@ class StripeSDK:
     """Simula el SDK oficial de Stripe."""
     def create_charge(self, amount_in_cents: int, currency_code: str, email: str) -> Dict[str, Any]:
         return {
-            "id": f"ch_stripe_{amount_in_cents}",
+            # Id simulado único por cargo (antes se repetía con montos iguales).
+            "id": f"ch_stripe_{uuid.uuid4().hex}",
             "status": "succeeded",
             "charged_amount": amount_in_cents / 100
         }
@@ -43,7 +45,8 @@ class WompiSDK:
     def create_transaction(self, amount_in_cop: float, reference: str, payer_email: str) -> Dict[str, Any]:
         return {
             "data": {
-                "id": f"wompi_tx_{int(amount_in_cop)}",
+                # Id simulado único por transacción.
+                "id": f"wompi_tx_{uuid.uuid4().hex}",
                 "status": "APPROVED",
                 "reference": reference
             }
@@ -61,7 +64,8 @@ class StripePaymentAdapter(PaymentGatewayPort):
 
     def process_payment(self, amount: float, currency: str, customer_email: str) -> PaymentResult:
         # Traduce los requerimientos del dominio al formato específico de Stripe (centavos)
-        amount_cents = int(amount * 100)
+        # round() y no int(): 19.99 * 100 = 1998.99... e int() truncaba a 1998.
+        amount_cents = round(amount * 100)
         response = self._sdk.create_charge(amount_cents, currency, customer_email)
         
         is_success = response.get("status") == "succeeded"

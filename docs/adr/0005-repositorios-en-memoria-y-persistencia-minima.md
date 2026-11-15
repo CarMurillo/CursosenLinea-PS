@@ -27,5 +27,5 @@ recomendación son agregados nuevos o recientes.
 - Negativas: al reiniciar el backend se pierden cursos, pagos, progreso, evaluaciones, clases,
   certificados, notificaciones, auditoría y sesiones (los usuarios no). Hay que volver a ejecutar el
   seed e iniciar sesión otra vez. No sirve para varios procesos.
-- Deuda: el puerto `app/users/domain/repositories.py` importa `UserModel` (SQLAlchemy). Eso viola la
-  regla hexagonal de que el dominio no dependa de la infraestructura.
+- Deuda saldada (Fase 6, QA-6): el puerto `app/users/domain/repositories.py` ya no importa `UserModel`;
+  usa el Protocol `UserRecord` y la entidad `User`, y `SqlAlchemyUserRepository` hace el mapeo al ORM.

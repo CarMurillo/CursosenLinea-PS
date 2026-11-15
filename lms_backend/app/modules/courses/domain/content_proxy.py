@@ -8,6 +8,11 @@ class ContentAccessDenied(PermissionError):
     """El estudiante no tiene derecho a ver el contenido solicitado."""
 
 
+DEFAULT_DENIED_MESSAGE = (
+    "Debes adquirir el curso Premium para acceder a este contenido."
+)
+
+
 class AccessPolicy(Protocol):
     def can_access(self, student_id: str | None, course) -> bool: ...
 
@@ -40,6 +45,7 @@ class ProtectedContentProxy(ContentComponent):
         student_id: str | None,
         policy: AccessPolicy,
         requires_access: bool = True,
+        denied_message: str = DEFAULT_DENIED_MESSAGE,
     ):
         self._real_factory = real_factory
         self._real: ContentComponent | None = None
@@ -47,14 +53,13 @@ class ProtectedContentProxy(ContentComponent):
         self._student_id = student_id
         self._policy = policy
         self._requires_access = requires_access
+        self._denied_message = denied_message
 
     def _check(self) -> None:
         if self._requires_access and not self._policy.can_access(
             self._student_id, self._course
         ):
-            raise ContentAccessDenied(
-                "Debes adquirir el curso Premium para acceder a este contenido."
-            )
+            raise ContentAccessDenied(self._denied_message)
 
     def _subject(self) -> ContentComponent:
         self._check()

@@ -4,11 +4,11 @@
 `courses_router` -> GET /courses/{course_id}/live-sessions
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.modules.live_sessions.application.use_cases import LiveSessionService
 from app.shared.infrastructure import container
@@ -26,6 +26,18 @@ class LiveSessionCreateDTO(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     scheduled_at: Optional[datetime] = None
     duration_minutes: int = Field(default=60, gt=0, le=600)
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def _not_in_the_past(cls, value: Optional[datetime]) -> Optional[datetime]:
+        # Fechas sin zona horaria se interpretan como UTC. Se tolera un
+        # minuto de desfase de reloj entre cliente y servidor.
+        if value is None:
+            return value
+        aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if aware < datetime.now(timezone.utc) - timedelta(minutes=1):
+            raise ValueError("La clase no puede programarse en el pasado.")
+        return value
 
 
 def get_live_session_service() -> LiveSessionService:

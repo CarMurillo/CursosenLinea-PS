@@ -50,7 +50,10 @@ from app.modules.certificates.infrastructure.repository import (
     InMemoryCertificateRepository,
 )
 from app.modules.courses.application.observers import AutoEnrollOnPaymentObserver
-from app.modules.courses.application.use_cases import EnrollStudentUseCase
+from app.modules.courses.application.use_cases import (
+    EnrollStudentUseCase,
+    course_requires_payment,
+)
 from app.modules.courses.domain.ports import CourseRepository
 from app.modules.courses.application.course_facade import CourseFacade
 from app.modules.courses.domain.visitor import ProgressVisitor
@@ -65,7 +68,11 @@ from app.modules.notifications.infrastructure.repository import (
     InMemoryNotificationRepository,
 )
 from app.modules.payments.application.use_cases import ProcessPaymentUseCase
-from app.modules.payments.domain.ports import PaymentRepository
+from app.modules.payments.domain.ports import (
+    CoursePurchaseInfo,
+    CoursePurchaseReaderPort,
+    PaymentRepository,
+)
 from app.modules.payments.infrastructure.repository import InMemoryPaymentRepository
 from app.modules.progress.application.use_cases import (
     CompleteLessonUseCase,
@@ -112,6 +119,28 @@ def make_course_price_lookup(courses: CourseRepository):
         course = courses.get_by_id(course_id)
         return None if course is None else float(course.price or 0)
     return lookup
+
+
+class CoursePurchaseReaderAdapter(CoursePurchaseReaderPort):
+    """Adapta `CourseRepository` al puerto de lectura que usa pagos."""
+
+    def __init__(self, courses: CourseRepository):
+        self._courses = courses
+
+    def get_purchase_info(self, course_id: str) -> Optional[CoursePurchaseInfo]:
+        course = self._courses.get_by_id(course_id)
+        if course is None:
+            return None
+        return CoursePurchaseInfo(
+            course_id=course.course_id,
+            owner_id=course.instructor_id,
+            requires_payment=course_requires_payment(course),
+            price=float(course.price or 0),
+        )
+
+    def is_enrolled(self, user_id: str, course_id: str) -> bool:
+        course = self._courses.get_by_id(course_id)
+        return course is not None and user_id in course.enrolled_students
 
 
 def make_course_members_resolver(courses: CourseRepository):
@@ -314,6 +343,7 @@ def make_process_payment_use_case() -> ProcessPaymentUseCase:
         payment_repository,
         event_bus=event_bus,
         price_lookup=make_course_price_lookup(course_repository),
+        course_reader=CoursePurchaseReaderAdapter(course_repository),
     )
 
 

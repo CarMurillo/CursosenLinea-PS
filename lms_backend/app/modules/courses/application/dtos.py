@@ -1,9 +1,11 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from app.shared.application.dtos import MAX_MONEY_AMOUNT, StrictDTO
 
 
-class CourseCreateDTO(BaseModel):
+class CourseCreateDTO(StrictDTO):
 
     title: str
 
@@ -11,8 +13,10 @@ class CourseCreateDTO(BaseModel):
     # Si llega en el cuerpo se ignora en el endpoint HTTP.
     instructor: Optional[str] = None
 
+    # StrictDTO rechaza Infinity/NaN (422) y `le` acota el precio.
     price: float = Field(
-        ge=0
+        ge=0,
+        le=MAX_MONEY_AMOUNT,
     )
 
     course_type: Literal[
@@ -23,6 +27,14 @@ class CourseCreateDTO(BaseModel):
     premium: bool = False
 
     certificate: bool = False
+
+    @model_validator(mode="after")
+    def _premium_requires_price(self) -> "CourseCreateDTO":
+        # Un curso Premium con precio 0 no se puede adquirir (el pago exige
+        # amount > 0 y la inscripción exige pago aprobado): se rechaza (422).
+        if self.premium and self.price <= 0:
+            raise ValueError("Un curso Premium requiere un precio mayor que 0.")
+        return self
 
 
 class EnrollmentDTO(BaseModel):
@@ -40,7 +52,7 @@ class CloneCourseDTO(BaseModel):
     new_title: Optional[str] = None
 
 
-class LessonCreateDTO(BaseModel):
+class LessonCreateDTO(StrictDTO):
 
     module_title: str = Field(
         min_length=1

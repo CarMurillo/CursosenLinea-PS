@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.assessments.infrastructure.api import (
@@ -24,6 +25,7 @@ from app.modules.recommendations.infrastructure.api import (
 )
 from app.shared.infrastructure.config.system_config import SystemConfig
 from app.shared.infrastructure.database import init_db
+from app.shared.infrastructure.http_errors import request_validation_error_handler
 from app.shared.infrastructure.observability import (
     configure_logging,
     log_requests,
@@ -45,6 +47,9 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title=config.app_name, version=config.version, lifespan=lifespan)
+
+# 422 de validación serializable aunque la entrada traiga Infinity/NaN.
+app.add_exception_handler(RequestValidationError, request_validation_error_handler)
 
 # Logging de cada request: método, ruta, status y duración en ms.
 app.middleware("http")(log_requests)

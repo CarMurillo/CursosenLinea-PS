@@ -12,6 +12,11 @@ Regla de monto: si se inyecta `price_lookup`, el pago se rechaza
 (AmountBelowPriceError -> HTTP 400) cuando `amount` < precio del curso.
 LIMITACIÓN conocida: no hay conversión de moneda; se compara el número tal
 cual, sin importar `currency` (p. ej. 50 COP "cubre" un curso de 10 USD).
+
+Reglas de compra (si se inyecta `course_reader`, puerto
+CoursePurchaseReaderPort): no se cobra si el usuario ya está inscrito
+(AlreadyEnrolledError -> 409), si es el dueño del curso o si el curso no
+requiere pago (PaymentNotAllowedError -> 400).
 """
 
 from typing import Callable, Dict, Optional
@@ -22,7 +27,11 @@ from app.modules.payments.domain.adapter import (
     WompiPaymentAdapter,
 )
 from app.modules.payments.domain.models import Payment, PaymentStatus
-from app.modules.payments.domain.ports import PaymentGatewayPort, PaymentRepository
+from app.modules.payments.domain.ports import (
+    CoursePurchaseReaderPort,
+    PaymentGatewayPort,
+    PaymentRepository,
+)
 from app.shared.domain.events import (
     DomainEvent,
     EventPublisher,
@@ -52,6 +61,14 @@ class AmountBelowPriceError(ValueError):
     """El monto pagado es menor que el precio del curso (HTTP 400)."""
 
 
+class AlreadyEnrolledError(Exception):
+    """El usuario ya está inscrito en el curso: no se cobra (HTTP 409)."""
+
+
+class PaymentNotAllowedError(ValueError):
+    """El curso no requiere pago o el usuario es su dueño (HTTP 400)."""
+
+
 def default_gateways() -> Dict[str, PaymentGatewayPort]:
     return {
         "stripe": StripePaymentAdapter(),
@@ -68,8 +85,10 @@ class ProcessPaymentUseCase:
         gateways: Optional[Dict[str, PaymentGatewayPort]] = None,
         event_bus: Optional[EventPublisher] = None,
         price_lookup: Optional[PriceLookup] = None,
+        course_reader: Optional[CoursePurchaseReaderPort] = None,
     ):
         self.repository = repository
+        self._course_reader = course_reader
         self._gateways = gateways if gateways is not None else default_gateways()
         self.event_bus = event_bus
         self._price_lookup = price_lookup
@@ -87,6 +106,8 @@ class ProcessPaymentUseCase:
 
         if self.repository.has_approved_payment(user_id, dto.course_id):
             raise AlreadyPaidError(dto.course_id)
+
+        self._ensure_purchase_allowed(user_id, dto.course_id)
 
         if self._price_lookup is not None:
             price = self._price_lookup(dto.course_id)
@@ -133,3 +154,18 @@ class ProcessPaymentUseCase:
         ))
 
         return payment
+
+    def _ensure_purchase_allowed(self, user_id: str, course_id: str) -> None:
+        if self._course_reader is None:
+            return
+        if self._course_reader.is_enrolled(user_id, course_id):
+            raise AlreadyEnrolledError(course_id)
+        info = self._course_reader.get_purchase_info(course_id)
+        if info is None:
+            return
+        if info.owner_id is not None and info.owner_id == user_id:
+            raise PaymentNotAllowedError("No puedes pagar tu propio curso.")
+        if not info.requires_payment:
+            raise PaymentNotAllowedError(
+                "Este curso es gratuito: inscríbete sin pagar."
+            )

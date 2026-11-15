@@ -111,9 +111,10 @@ const Register = () => {
                 <input
                     type="password"
                     name="password"
-                    placeholder="Contraseña"
+                    placeholder="Contraseña (mínimo 8 caracteres)"
                     value={form.password}
                     onChange={handleChange}
+                    minLength={8}
                     required
                 />
 

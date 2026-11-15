@@ -27,6 +27,9 @@ def get_current_user(
     user = SqlAlchemyUserRepository(db).get_by_id(user_id) if user_id else None
     if user is None:
         raise HTTPException(status_code=401, detail="Sesión no válida")
+    # Un usuario desactivado pierde el acceso aunque conserve un token emitido.
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Usuario inactivo")
     return user
 
 

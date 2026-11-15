@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.modules.payments.application.dtos import PaymentRequestDTO
 from app.modules.payments.application.use_cases import (
+    AlreadyEnrolledError,
     AlreadyPaidError,
     AmountBelowPriceError,
+    PaymentNotAllowedError,
     PaymentRejectedError,
     ProcessPaymentUseCase,
     UnsupportedGatewayError,
@@ -42,7 +44,16 @@ def process_payment(
         raise HTTPException(
             status_code=409, detail="Ya existe un pago aprobado para este curso."
         )
-    except (PaymentRejectedError, UnsupportedGatewayError, AmountBelowPriceError) as error:
+    except AlreadyEnrolledError:
+        raise HTTPException(
+            status_code=409, detail="Ya estás inscrito en este curso."
+        )
+    except (
+        PaymentRejectedError,
+        UnsupportedGatewayError,
+        AmountBelowPriceError,
+        PaymentNotAllowedError,
+    ) as error:
         raise HTTPException(status_code=400, detail=str(error))
 
     return {

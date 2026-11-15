@@ -230,8 +230,10 @@ transición de estado inválida; 400 pago rechazado o monto bajo; 422 validació
 - **Videoconferencia simulada**: `JitsiAdapter` genera URLs; la URL de grabación no apunta a un archivo real.
 - **Notificación de grabación**: solo la reciben el instructor y los estudiantes inscritos en el momento
   de terminar la clase; quien se inscribe después no recibe el aviso.
-- **Violación hexagonal conocida**: el puerto `lms_backend/app/users/domain/repositories.py` depende de
-  `UserModel` (SQLAlchemy).
+- **Acoplamiento en auth**: la capa de aplicación `lms_backend/app/modules/auth/application/use_cases.py`
+  importa `infrastructure.security` (hash y emisión de tokens) en lugar de puertos inyectados. El dominio
+  sí está libre de FastAPI/SQLAlchemy.
+- **Sesiones**: los usuarios inactivos (`is_active=False`) reciben 401, pero los tokens no caducan ni hay logout.
 - **Notificaciones leídas**: el backend no tiene "marcar como leída" (el campo `read` siempre es `false`).
   La campana del frontend guarda lo visto en `localStorage`, por navegador.
 - **Bus de eventos síncrono**: los observadores corren dentro de la petición HTTP; no hay cola, reintentos

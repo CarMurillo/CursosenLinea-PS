@@ -1,3 +1,14 @@
+import { COURSE_KIND_LABEL, courseKind, formatPrice } from "../utils/format";
+import {
+    IconArrowRight,
+    IconAward,
+    IconBroadcast,
+    IconCard,
+    IconCheck,
+    IconCopy,
+    IconStar,
+    IconVideo
+} from "./icons";
 
 const CourseCard = ({
     course,
@@ -11,128 +22,165 @@ const CourseCard = ({
     showPay = false,
     showContent = false,
 
+    enrolled = false,
+    contentLabel = "Ver contenido",
+
     busy = false,
     children
 }) => {
 
+    const kind = courseKind(course);
+    const KindIcon = kind === "live" ? IconBroadcast : IconVideo;
+    const isPaid = Number(course.price) > 0;
+    const hasActions = showPay || showEnroll || showClone || showContent;
+    const loadingClass = busy ? " is-loading" : "";
+
     return (
 
-        <div className="course-card">
+        <article className={`course-card course-card-${kind}`}>
 
-            <h3>
-                {course.title}
-            </h3>
+            <div className="course-card-header">
+                <span className="course-kind">
+                    <KindIcon size={18} />
+                    {COURSE_KIND_LABEL[kind]}
+                </span>
 
-            <p>
-                Instructor: {course.instructor}
-            </p>
-
-            <p>
-                Tipo: {course.type}
-            </p>
-
-            <p>
-                Precio: {course.price > 0 ? `$${course.price}` : "Gratis"}
-                {course.premium && course.base_price !== undefined && (
-                    <span className="muted">
-                        {" "}(base ${course.base_price} + 20% premium)
+                {course.premium && (
+                    <span className="badge badge-premium">
+                        <IconStar size={14} />
+                        Premium
                     </span>
                 )}
-            </p>
+            </div>
 
+            <div className="course-card-body">
 
-            {course.premium && (
-                <span>
-                    ⭐ Premium
-                </span>
-            )}
+                <h3 className="course-title">
+                    {course.title}
+                </h3>
 
+                <p className="course-instructor">
+                    {course.instructor}
+                </p>
 
-            {course.certificate && (
-                <span>
-                    🏆 Certificado
-                </span>
-            )}
+                <div className="badge-row">
+                    {enrolled && (
+                        <span className="badge badge-enrolled">
+                            <IconCheck size={14} />
+                            Inscrito
+                        </span>
+                    )}
 
+                    {course.certificate && (
+                        <span className="badge badge-certificate">
+                            <IconAward size={14} />
+                            Certificado
+                        </span>
+                    )}
+                </div>
 
-            {showPay && (
+                <div className="course-price">
+                    <span className={`price${isPaid ? "" : " price-free"}`}>
+                        {formatPrice(course.price)}
+                    </span>
 
-                <div className="actions">
+                    {course.premium && course.base_price !== undefined && (
+                        <span className="muted">
+                            Base {formatPrice(course.base_price)} + 20% premium
+                        </span>
+                    )}
+                </div>
 
-                    <button
-                        className="btn-primary"
-                        disabled={busy}
-                        onClick={() =>
-                            onPay(
-                                course,
-                                "wompi"
-                            )
-                        }
-                    >
-                        Pagar con Wompi
-                    </button>
+                {children}
 
+            </div>
 
-                    <button
-                        className="btn-primary"
-                        disabled={busy}
-                        onClick={() =>
-                            onPay(
-                                course,
-                                "stripe"
-                            )
-                        }
-                    >
-                        Pagar con Stripe
-                    </button>
+            {hasActions && (
+
+                <div className="course-card-footer">
+
+                    {showPay && (
+                        <>
+                            <button
+                                type="button"
+                                className={`btn ${course.premium ? "btn-premium" : "btn-primary"} btn-sm${loadingClass}`}
+                                disabled={busy}
+                                aria-busy={busy}
+                                onClick={() =>
+                                    onPay(
+                                        course,
+                                        "wompi"
+                                    )
+                                }
+                            >
+                                <IconCard size={16} />
+                                Pagar con Wompi
+                            </button>
+
+                            <button
+                                type="button"
+                                className={`btn btn-secondary btn-sm${loadingClass}`}
+                                disabled={busy}
+                                aria-busy={busy}
+                                onClick={() =>
+                                    onPay(
+                                        course,
+                                        "stripe"
+                                    )
+                                }
+                            >
+                                <IconCard size={16} />
+                                Pagar con Stripe
+                            </button>
+                        </>
+                    )}
+
+                    {showEnroll && (
+                        <button
+                            type="button"
+                            className={`btn btn-primary btn-sm${loadingClass}`}
+                            disabled={busy}
+                            aria-busy={busy}
+                            onClick={() =>
+                                onEnroll(course)
+                            }
+                        >
+                            Inscribirme gratis
+                        </button>
+                    )}
+
+                    {showContent && (
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() =>
+                                onContent(course)
+                            }
+                        >
+                            {contentLabel}
+                            <IconArrowRight size={16} />
+                        </button>
+                    )}
+
+                    {showClone && (
+                        <button
+                            type="button"
+                            className={`btn btn-ghost btn-sm${loadingClass}`}
+                            disabled={busy}
+                            aria-busy={busy}
+                            onClick={() =>
+                                onClone(course)
+                            }
+                        >
+                            <IconCopy size={16} />
+                            Clonar
+                        </button>
+                    )}
 
                 </div>
             )}
 
-
-            {showEnroll && (
-
-                <button
-                    className="btn-primary"
-                    disabled={busy}
-                    onClick={() =>
-                        onEnroll(course)
-                    }
-                >
-                    Inscribirme
-                </button>
-            )}
-
-
-            {showClone && (
-
-                <button
-                    className="btn-secondary"
-                    disabled={busy}
-                    onClick={() =>
-                        onClone(course)
-                    }
-                >
-                    Clonar curso
-                </button>
-            )}
-
-
-            {showContent && (
-
-                <button
-                    className="btn-secondary"
-                    onClick={() =>
-                        onContent(course)
-                    }
-                >
-                    Ver contenido
-                </button>
-            )}
-
-            {children}
-
-        </div>
+        </article>
     );
 };
 

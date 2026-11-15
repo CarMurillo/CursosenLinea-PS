@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 
 import Layout from "../../components/Layout";
 import { Empty, ErrorState, Loading } from "../../components/Status";
+import { IconClipboard, IconRefresh } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import { EVENT_TYPES, getAuditLog } from "../../services/adminService";
+import { formatDateTime } from "../../utils/format";
 
 
 const shortId = (id) => (id ? `${String(id).slice(0, 8)}...` : "-");
@@ -37,36 +39,47 @@ const AuditLog = () => {
         }
 
         if (!data || data.length === 0) {
-            return <Empty>No hay eventos registrados para este filtro.</Empty>;
+            return (
+                <Empty icon={IconClipboard}>
+                    No hay eventos registrados para este filtro.
+                </Empty>
+            );
         }
 
         return (
-            <table className="users-table">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Evento</th>
-                        <th>Usuario</th>
-                        <th>Curso</th>
-                        <th>Datos</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {data.map((entry) => (
-                        <tr key={entry.event_id}>
-                            <td>{new Date(entry.occurred_at).toLocaleString()}</td>
-                            <td>
-                                <span className="badge">{entry.event_type}</span>
-                            </td>
-                            <td title={entry.user_id || ""}>{shortId(entry.user_id)}</td>
-                            <td title={entry.course_id || ""}>{shortId(entry.course_id)}</td>
-                            <td>
-                                <code>{JSON.stringify(entry.payload || {})}</code>
-                            </td>
+            <div className="table-wrap table-wrap-scroll">
+                <table className="users-table">
+                    <caption className="sr-only">Eventos de auditoría</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Evento</th>
+                            <th scope="col">Usuario</th>
+                            <th scope="col">Curso</th>
+                            <th scope="col">Datos</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {data.map((entry) => (
+                            <tr key={entry.event_id}>
+                                <td className="cell-nowrap">{formatDateTime(entry.occurred_at)}</td>
+                                <td>
+                                    <span className="badge">{entry.event_type}</span>
+                                </td>
+                                <td className="cell-nowrap" title={entry.user_id || ""}>
+                                    <code>{shortId(entry.user_id)}</code>
+                                </td>
+                                <td className="cell-nowrap" title={entry.course_id || ""}>
+                                    <code>{shortId(entry.course_id)}</code>
+                                </td>
+                                <td className="cell-code">
+                                    <code>{JSON.stringify(entry.payload || {}, null, 1)}</code>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         );
     };
 
@@ -75,11 +88,14 @@ const AuditLog = () => {
             title="Log de auditoría"
             subtitle="Eventos del dominio publicados en el bus y registrados por el observador de auditoría."
         >
-            <div className="actions">
+            <div className="toolbar">
+                <label className="sr-only" htmlFor="audit-type">
+                    Filtrar por tipo de evento
+                </label>
                 <select
+                    id="audit-type"
                     value={eventType}
                     onChange={(e) => setEventType(e.target.value)}
-                    aria-label="Filtrar por tipo de evento"
                 >
                     <option value="">Todos los eventos</option>
                     {EVENT_TYPES.map((type) => (
@@ -89,10 +105,13 @@ const AuditLog = () => {
                     ))}
                 </select>
 
+                <label className="sr-only" htmlFor="audit-limit">
+                    Cantidad de eventos
+                </label>
                 <select
+                    id="audit-limit"
                     value={limit}
                     onChange={(e) => setLimit(Number(e.target.value))}
-                    aria-label="Cantidad de eventos"
                 >
                     {[50, 100, 500].map((value) => (
                         <option key={value} value={value}>
@@ -101,7 +120,8 @@ const AuditLog = () => {
                     ))}
                 </select>
 
-                <button type="button" className="btn-secondary" onClick={reload}>
+                <button type="button" className="btn btn-secondary" onClick={reload}>
+                    <IconRefresh size={18} />
                     Actualizar
                 </button>
             </div>

@@ -2,8 +2,10 @@ import { Link } from "react-router-dom";
 
 import Layout from "../../components/Layout";
 import { Empty, ErrorState, Loading } from "../../components/Status";
+import { IconArrowRight, IconAward, IconSparkle, IconStar } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import { getMyRecommendations } from "../../services/recommendationService";
+import { COURSE_KIND_LABEL, courseKind, formatPrice } from "../../utils/format";
 
 const RULE_LABELS = {
     refuerzo: "Refuerzo",
@@ -20,7 +22,7 @@ const StudentRecommendations = () => {
 
     const renderBody = () => {
         if (loading && !data) {
-            return <Loading text="Calculando recomendaciones..." />;
+            return <Loading text="Calculando recomendaciones..." variant="cards" />;
         }
 
         if (error) {
@@ -35,7 +37,7 @@ const StudentRecommendations = () => {
 
         if (!data || data.length === 0) {
             return (
-                <Empty>
+                <Empty icon={IconSparkle}>
                     No hay recomendaciones por ahora. Avanza en tus cursos para
                     recibir sugerencias.
                 </Empty>
@@ -45,37 +47,55 @@ const StudentRecommendations = () => {
         return (
             <div className="course-grid">
                 {data.map((item) => (
-                    <div className="course-card" key={item.course_id}>
-                        <h3>{item.title}</h3>
-
-                        <div>
-                            <span className="badge">
+                    <article className="card card-interactive" key={item.course_id}>
+                        <div className="badge-row">
+                            <span className="badge badge-live-course">
+                                <IconSparkle size={14} />
                                 {RULE_LABELS[item.rule] || item.rule}
                             </span>
-                            {item.premium && <span className="badge">Premium</span>}
+                            {item.premium && (
+                                <span className="badge badge-premium">
+                                    <IconStar size={14} />
+                                    Premium
+                                </span>
+                            )}
                             {item.certificate && (
-                                <span className="badge">Certificado</span>
+                                <span className="badge badge-certificate">
+                                    <IconAward size={14} />
+                                    Certificado
+                                </span>
                             )}
                         </div>
 
-                        <p>
+                        <h3 className="card-title">{item.title}</h3>
+
+                        <p className="reason">
                             <strong>Por qué:</strong> {item.reason}
                         </p>
 
-                        <p className="muted">
-                            {item.instructor} - {item.type} -{" "}
-                            {item.price > 0 ? `$${item.price}` : "Gratis"}
+                        <p className="meta-inline">
+                            <span>{item.instructor}</span>
+                            <span>{COURSE_KIND_LABEL[courseKind(item)]}</span>
+                            <span className="price-inline">{formatPrice(item.price)}</span>
                         </p>
 
-                        <Link to="/student/courses">Ver en el catálogo</Link>
-                    </div>
+                        <div className="card-footer">
+                            <Link className="btn btn-secondary btn-sm" to="/student/courses">
+                                Ver en el catálogo
+                                <IconArrowRight size={16} />
+                            </Link>
+                        </div>
+                    </article>
                 ))}
             </div>
         );
     };
 
     return (
-        <Layout title="Recomendaciones para ti">
+        <Layout
+            title="Recomendaciones para ti"
+            subtitle="Sugerencias calculadas con reglas a partir de tu avance."
+        >
             {renderBody()}
         </Layout>
     );

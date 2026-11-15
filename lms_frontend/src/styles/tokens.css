@@ -1,0 +1,155 @@
+/*
+ * Sistema de diseño de CursosenLínea.
+ * Único archivo con colores escritos a mano: el resto del CSS usa variables.
+ * Contraste verificado contra blanco (WCAG AA): textos >= 4.5:1, componentes >= 3:1.
+ */
+
+:root {
+    /* ---------- Primario: azul petróleo ---------- */
+    --primary-50: #ecf6f7;
+    --primary-100: #d2ebee;
+    --primary-200: #a6d6dc;
+    --primary-300: #6db9c3;
+    --primary-500: #13808f;
+    --primary-600: #0e6875; /* 6.3:1 sobre blanco */
+    --primary-700: #0b525c;
+    --primary-800: #083e46;
+    --primary-900: #052a30;
+
+    /* ---------- Acento Premium: ámbar ---------- */
+    --accent-50: #fff8e8;
+    --accent-100: #fdecc2;
+    --accent-200: #f8d98a;
+    --accent-400: #e8ad2a;
+    --accent-500: #d99a0b;
+    --accent-600: #b77f05;
+    --accent-700: #8a5d03; /* 6.0:1 sobre blanco */
+    --accent-800: #6b4802;
+
+    /* ---------- Violeta: cursos en vivo ---------- */
+    --violet-50: #f4f0fb;
+    --violet-100: #e6dcf6;
+    --violet-600: #6a3fb0;
+    --violet-700: #55308f;
+
+    /* ---------- Neutrales ---------- */
+    --neutral-0: #ffffff;
+    --neutral-50: #f7f8fa;
+    --neutral-100: #eef0f3;
+    --neutral-200: #e1e5ea;
+    --neutral-300: #c9d0d8;
+    --neutral-400: #9aa5b1;
+    --neutral-500: #5d6876; /* 5.7:1 sobre blanco, 4.9:1 sobre neutral-100 */
+    --neutral-600: #4f5965;
+    --neutral-700: #3a434e;
+    --neutral-800: #252c35;
+    --neutral-900: #151a21;
+
+    /* ---------- Semánticos (fondo suave, borde, texto, sólido) ---------- */
+    --success-bg: #eaf7ef;
+    --success-border: #a7dcb9;
+    --success-text: #17643a;
+    --success-solid: #1f8a4c;
+
+    --error-bg: #fdeeee;
+    --error-border: #f3b9b9;
+    --error-text: #a32020;
+    --error-solid: #c62828;
+
+    --warning-bg: #fff6e0;
+    --warning-border: #f2d48a;
+    --warning-text: #7a5300;
+    --warning-solid: #b7791f;
+
+    --info-bg: #eaf2fd;
+    --info-border: #b5cff3;
+    --info-text: #1d4f91;
+    --info-solid: #2a6cc4;
+
+    /* ---------- Roles de color ---------- */
+    --color-bg: var(--neutral-50);
+    --color-surface: var(--neutral-0);
+    --color-surface-muted: var(--neutral-100);
+    --color-text: var(--neutral-900);
+    --color-text-soft: var(--neutral-700);
+    --color-text-muted: var(--neutral-500);
+    --color-border: var(--neutral-200);
+    --color-border-strong: var(--neutral-300);
+    --color-border-input: #7d8896; /* 3.6:1: límite de controles (WCAG 1.4.11) */
+    --color-primary: var(--primary-600);
+    --color-primary-hover: var(--primary-700);
+    --color-primary-active: var(--primary-800);
+    --color-on-primary: var(--neutral-0);
+    --color-focus: var(--primary-500);
+    --color-overlay: rgba(21, 26, 33, 0.45);
+
+    --color-nav-bg: var(--primary-900);
+    --color-nav-text: var(--primary-50);
+    --color-nav-muted: var(--primary-200);
+    --color-nav-hover: var(--primary-800);
+
+    --color-course-video: var(--primary-700);
+    --color-course-video-2: var(--primary-500);
+    --color-course-live: var(--violet-700);
+    --color-course-live-2: var(--violet-600);
+
+    --color-code-bg: var(--neutral-900);
+    --color-code-text: var(--neutral-100);
+
+    /* ---------- Tipografía ---------- */
+    --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    --font-serif: Georgia, "Times New Roman", serif;
+
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+
+    --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    --leading-tight: 1.25;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.65;
+
+    /* ---------- Espaciado (base 4) ---------- */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    /* ---------- Formas y profundidad ---------- */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-full: 999px;
+
+    --shadow-sm: 0 1px 2px rgba(21, 26, 33, 0.06), 0 1px 3px rgba(21, 26, 33, 0.08);
+    --shadow-md: 0 4px 12px rgba(21, 26, 33, 0.08), 0 2px 4px rgba(21, 26, 33, 0.05);
+    --shadow-lg: 0 12px 32px rgba(21, 26, 33, 0.14), 0 4px 8px rgba(21, 26, 33, 0.06);
+    --focus-ring: 0 0 0 3px var(--primary-200);
+
+    /* ---------- Medidas ---------- */
+    --content-max: 1200px;
+    --navbar-height: 64px;
+    --sidebar-width: 248px;
+    --sidebar-compact: 76px;
+    --control-height: 42px;
+    --control-height-sm: 34px;
+
+    /* ---------- Movimiento ---------- */
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --duration-fast: 150ms;
+    --duration: 200ms;
+}

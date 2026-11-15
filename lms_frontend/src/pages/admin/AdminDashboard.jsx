@@ -1,9 +1,23 @@
-import { Link } from "react-router-dom";
-
 import Layout from "../../components/Layout";
+import { QuickLink, StatCard } from "../../components/StatCard";
 import { ErrorState, Loading } from "../../components/Status";
+import {
+    IconActivity,
+    IconAward,
+    IconBell,
+    IconBook,
+    IconBroadcast,
+    IconCard,
+    IconClipboard,
+    IconFlask,
+    IconLayers,
+    IconQuiz,
+    IconRefresh,
+    IconUsers
+} from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import { getHealth } from "../../services/adminService";
+import { getUsers } from "../../services/userService";
 
 const COUNTER_LABELS = {
     courses: "Cursos",
@@ -17,9 +31,22 @@ const COUNTER_LABELS = {
     event_observers: "Observadores registrados",
 };
 
+const COUNTER_ICONS = {
+    courses: IconLayers,
+    enrollments: IconBook,
+    payments: IconCard,
+    assessments: IconQuiz,
+    live_sessions: IconBroadcast,
+    certificates: IconAward,
+    notifications: IconBell,
+    audit_events: IconClipboard,
+    event_observers: IconActivity,
+};
+
 const AdminDashboard = () => {
 
     const { data: health, error, loading, reload } = useResource(getHealth);
+    const { data: users, loading: loadingUsers } = useResource(getUsers);
 
     const renderHealth = () => {
         if (loading && !health) {
@@ -36,70 +63,110 @@ const AdminDashboard = () => {
             );
         }
 
+        const healthy = health.status === "ok";
+
         return (
             <div className="panel">
-                <h2>
-                    Estado del servicio:{" "}
-                    <span className={health.status === "ok" ? "success" : "error"}>
-                        {health.status}
-                    </span>
-                </h2>
+                <div className="card-head">
+                    <div className="health-title">
+                        <h2>Estado del servicio</h2>
+                        <span className={`badge ${healthy ? "badge-success" : "badge-error"}`}>
+                            {healthy ? "Operativo" : health.status}
+                        </span>
+                    </div>
+
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={reload}>
+                        <IconRefresh size={16} />
+                        Actualizar
+                    </button>
+                </div>
 
                 <p className="muted">
-                    {health.app} v{health.version} - BD: {String(health.database)} -
+                    {health.app} v{health.version} · BD: {String(health.database)} ·
                     activo hace {Math.round(health.uptime_seconds)} s
                 </p>
 
-                <div className="dashboard-cards">
+                <div className="stat-grid">
                     {Object.entries(health.counters || {}).map(([key, value]) => (
-                        <div className="dashboard-card" key={key}>
-                            <h3>{value}</h3>
-                            <p>{COUNTER_LABELS[key] || key}</p>
-                        </div>
+                        <StatCard
+                            key={key}
+                            icon={COUNTER_ICONS[key] || IconActivity}
+                            label={COUNTER_LABELS[key] || key}
+                            value={value}
+                        />
                     ))}
                 </div>
-
-                <button type="button" className="btn-secondary" onClick={reload}>
-                    Actualizar
-                </button>
             </div>
         );
     };
+
+    const totalCourses = health?.counters?.courses;
 
     return (
         <Layout
             title="Panel de administración"
             subtitle="Administración general del LMS."
         >
-            <div className="dashboard-cards">
+            <section className="section" aria-labelledby="indicadores">
+                <h2 id="indicadores" className="sr-only">Indicadores</h2>
 
-                <div className="dashboard-card">
-                    <h3>Usuarios</h3>
-                    <p>
-                        Gestionar usuarios registrados.
-                    </p>
-                    <Link to="/admin/users">Ver usuarios</Link>
+                <div className="stat-grid">
+                    <StatCard
+                        icon={IconUsers}
+                        label="Usuarios registrados"
+                        value={loadingUsers && !users ? "…" : users?.length}
+                    />
+                    <StatCard
+                        icon={IconLayers}
+                        tone="violet"
+                        label="Cursos"
+                        value={loading && !health ? "…" : totalCourses}
+                    />
+                    <StatCard
+                        icon={IconBook}
+                        tone="success"
+                        label="Inscripciones"
+                        value={loading && !health ? "…" : health?.counters?.enrollments}
+                    />
                 </div>
+            </section>
 
-                <div className="dashboard-card">
-                    <h3>Cursos</h3>
-                    <p>
-                        Consultar cursos del sistema.
-                    </p>
-                    <Link to="/admin/courses">Ver cursos</Link>
+            <section className="section" aria-labelledby="accesos">
+                <h2 id="accesos">Accesos rápidos</h2>
+
+                <div className="quick-grid">
+                    <QuickLink
+                        to="/admin/users"
+                        icon={IconUsers}
+                        title="Usuarios"
+                        text="Gestionar usuarios registrados."
+                    />
+                    <QuickLink
+                        to="/admin/courses"
+                        icon={IconLayers}
+                        tone="violet"
+                        title="Cursos"
+                        text="Consultar cursos del sistema."
+                    />
+                    <QuickLink
+                        to="/admin/audit-log"
+                        icon={IconClipboard}
+                        title="Auditoría"
+                        text="Eventos del dominio registrados por el Observer."
+                    />
+                    <QuickLink
+                        to="/patterns"
+                        icon={IconFlask}
+                        tone="accent"
+                        title="Laboratorio de patrones"
+                        text="Demostraciones contra la API real."
+                    />
                 </div>
+            </section>
 
-                <div className="dashboard-card">
-                    <h3>Auditoría</h3>
-                    <p>
-                        Eventos del dominio registrados por el Observer.
-                    </p>
-                    <Link to="/admin/audit-log">Ver log</Link>
-                </div>
-
-            </div>
-
-            {renderHealth()}
+            <section className="section" aria-label="Actividad del sistema">
+                {renderHealth()}
+            </section>
         </Layout>
     );
 };

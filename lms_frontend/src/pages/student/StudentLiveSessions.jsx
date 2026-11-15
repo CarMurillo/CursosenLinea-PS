@@ -1,9 +1,10 @@
 import { useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Layout from "../../components/Layout";
 import LiveSessionCard from "../../components/LiveSessionCard";
 import { Empty, ErrorState, Loading } from "../../components/Status";
+import { IconBroadcast, IconRefresh } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import { getCourseLiveSessions } from "../../services/liveSessionService";
 
@@ -34,7 +35,11 @@ const StudentLiveSessions = () => {
         }
 
         if (!data || data.length === 0) {
-            return <Empty>No hay clases en vivo programadas.</Empty>;
+            return (
+                <Empty icon={IconBroadcast}>
+                    No hay clases en vivo programadas.
+                </Empty>
+            );
         }
 
         return (
@@ -47,17 +52,16 @@ const StudentLiveSessions = () => {
     };
 
     return (
-        <Layout title="Clases en vivo">
-            <div className="actions">
-                <Link to={`/student/course/${courseId}/content`}>
-                    Volver al contenido
-                </Link>
-
-                <button type="button" className="btn-secondary" onClick={reload}>
+        <Layout
+            title="Clases en vivo"
+            back={{ to: `/student/course/${courseId}/content`, label: "Volver al contenido" }}
+            actions={
+                <button type="button" className="btn btn-secondary" onClick={reload}>
+                    <IconRefresh size={18} />
                     Actualizar
                 </button>
-            </div>
-
+            }
+        >
             {renderBody()}
         </Layout>
     );

@@ -1,14 +1,14 @@
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Layout from "../../components/Layout";
 import StateBadge from "../../components/StateBadge";
 import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
+import { IconLock, IconQuiz } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import { getAssessment, submitAttempt } from "../../services/assessmentService";
 import { getErrorMessage } from "../../services/errors";
-
-const formatDate = (iso) => (iso ? new Date(iso).toLocaleString() : "");
+import { formatDateTime } from "../../utils/format";
 
 // Rendir una evaluación publicada. El backend califica (State: PublishedState)
 // y responde 409 si está cerrada o se agotaron los intentos.
@@ -76,30 +76,34 @@ const TakeAssessment = () => {
         }
 
         return (
-            <table className="users-table">
-                <thead>
-                    <tr>
-                        <th>Intento</th>
-                        <th>Puntaje</th>
-                        <th>Porcentaje</th>
-                        <th>Resultado</th>
-                        <th>Fecha</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {attempts.map((attempt) => (
-                        <tr key={attempt.attempt_id}>
-                            <td>{attempt.attempt_number}</td>
-                            <td>{attempt.score}/{attempt.max_score}</td>
-                            <td>{attempt.percentage}%</td>
-                            <td className={attempt.passed ? "success" : "error"}>
-                                {attempt.passed ? "Aprobado" : "No aprobado"}
-                            </td>
-                            <td>{formatDate(attempt.submitted_at)}</td>
+            <div className="table-wrap">
+                <table className="users-table">
+                    <thead>
+                        <tr>
+                            <th>Intento</th>
+                            <th>Puntaje</th>
+                            <th>Porcentaje</th>
+                            <th>Resultado</th>
+                            <th>Fecha</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {attempts.map((attempt) => (
+                            <tr key={attempt.attempt_id}>
+                                <td>{attempt.attempt_number}</td>
+                                <td>{attempt.score}/{attempt.max_score}</td>
+                                <td>{attempt.percentage}%</td>
+                                <td>
+                                    <span className={`badge ${attempt.passed ? "badge-success" : "badge-error"}`}>
+                                        {attempt.passed ? "Aprobado" : "No aprobado"}
+                                    </span>
+                                </td>
+                                <td className="cell-nowrap">{formatDateTime(attempt.submitted_at)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         );
     };
 
@@ -124,55 +128,54 @@ const TakeAssessment = () => {
 
         return (
             <>
-                <div className="panel">
-                    <h2>{assessment.title}</h2>
-
-                    <div>
+                <section className="panel">
+                    <div className="card-head">
+                        <h2>{assessment.title}</h2>
                         <StateBadge state={assessment.state} />
                     </div>
 
                     {assessment.description && <p>{assessment.description}</p>}
 
-                    <p className="muted">
-                        Puntaje máximo {assessment.max_score} - aprueba con{" "}
-                        {assessment.passing_score}% - intentos restantes: {remaining}
+                    <p className="meta-inline">
+                        <span>Puntaje máximo {assessment.max_score}</span>
+                        <span>Aprueba con {assessment.passing_score}%</span>
+                        <span>Intentos restantes: {remaining}</span>
                     </p>
-                </div>
+                </section>
 
                 <Notice notice={notice} />
 
                 {lastAttempt && (
-                    <div className="panel">
-                        <h3>Resultado</h3>
-                        <p>
-                            {lastAttempt.score}/{lastAttempt.max_score} puntos (
-                            {lastAttempt.percentage}%) -{" "}
-                            <strong className={lastAttempt.passed ? "success" : "error"}>
-                                {lastAttempt.passed ? "Aprobado" : "No aprobado"}
-                            </strong>
-                        </p>
-                    </div>
+                    <section className={`result-card ${lastAttempt.passed ? "is-passed" : "is-failed"}`}>
+                        <span className="result-score">{lastAttempt.percentage}%</span>
+                        <div>
+                            <h3>{lastAttempt.passed ? "Aprobado" : "No aprobado"}</h3>
+                            <p>
+                                {lastAttempt.score}/{lastAttempt.max_score} puntos
+                            </p>
+                        </div>
+                    </section>
                 )}
 
                 {canAnswer ? (
                     (assessment.questions || []).length === 0 ? (
-                        <Empty>La evaluación no tiene preguntas.</Empty>
+                        <Empty icon={IconQuiz}>La evaluación no tiene preguntas.</Empty>
                     ) : (
-                        <form className="panel" onSubmit={handleSubmit}>
+                        <form className="form-card" onSubmit={handleSubmit}>
                             {assessment.questions.map((question, index) => (
                                 <fieldset
                                     className="question-block"
                                     key={question.question_id}
                                 >
-                                    <strong>
+                                    <legend className="question-title">
                                         {index + 1}. {question.text}{" "}
                                         <span className="muted">
                                             ({question.points} pts)
                                         </span>
-                                    </strong>
+                                    </legend>
 
                                     {question.options.map((option, optionIndex) => (
-                                        <label key={optionIndex}>
+                                        <label className="option" key={optionIndex}>
                                             <input
                                                 type="radio"
                                                 name={question.question_id}
@@ -194,39 +197,46 @@ const TakeAssessment = () => {
                                 </fieldset>
                             ))}
 
-                            <button
-                                type="submit"
-                                className="btn-primary"
-                                disabled={sending}
-                            >
-                                {sending ? "Enviando..." : "Enviar respuestas"}
-                            </button>
+                            <div className="form-footer">
+                                <button
+                                    type="submit"
+                                    className={`btn btn-primary${sending ? " is-loading" : ""}`}
+                                    disabled={sending}
+                                    aria-busy={sending}
+                                >
+                                    Enviar respuestas
+                                </button>
+                            </div>
                         </form>
                     )
                 ) : (
-                    <p className="status status-empty">
+                    <Empty icon={IconLock}>
                         {assessment.state === "closed"
                             ? "La evaluación está cerrada."
                             : "Ya usaste todos tus intentos."}
-                    </p>
+                    </Empty>
                 )}
 
-                <div className="panel">
+                <section className="section">
                     <h3>Mis intentos</h3>
                     {renderAttempts(attempts)}
-                </div>
-
-                <p>
-                    <Link to={`/student/course/${assessment.course_id}/assessments`}>
-                        Volver a evaluaciones
-                    </Link>
-                </p>
+                </section>
             </>
         );
     };
 
     return (
-        <Layout title="Evaluación">
+        <Layout
+            title="Evaluación"
+            back={
+                assessment
+                    ? {
+                        to: `/student/course/${assessment.course_id}/assessments`,
+                        label: "Volver a evaluaciones",
+                    }
+                    : undefined
+            }
+        >
             {renderBody()}
         </Layout>
     );

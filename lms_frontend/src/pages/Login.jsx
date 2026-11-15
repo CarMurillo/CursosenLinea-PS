@@ -2,12 +2,15 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
 import { login } from "../services/authService";
+import AuthLayout from "../components/AuthLayout";
+import { Notice } from "../components/Status";
 
 const Login = () => {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [sending, setSending] = useState(false);
     const [searchParams] = useSearchParams();
     const expired = searchParams.get("expired") === "1";
 
@@ -18,6 +21,7 @@ const Login = () => {
         e.preventDefault();
 
         setError("");
+        setSending(true);
 
         try {
 
@@ -43,67 +47,86 @@ const Login = () => {
                 error.response?.data?.detail ||
                 "Correo o contraseña incorrectos"
             );
+        } finally {
+            setSending(false);
         }
     };
 
     return (
-        <div className="login-container">
-
+        <AuthLayout
+            title="Iniciar sesión"
+            subtitle="Bienvenido de nuevo. Ingresa con tu correo y contraseña."
+        >
             <form
-                className="login-form"
+                className="auth-form"
                 onSubmit={handleSubmit}
             >
 
-                <h1>LMS</h1>
-
-                <h2>Iniciar sesión</h2>
-
                 {expired && !error && (
-                    <p className="error">
-                        Tu sesión expiró o no es válida. Inicia sesión de nuevo.
-                    </p>
+                    <Notice
+                        notice={{
+                            type: "warning",
+                            text: "Tu sesión expiró o no es válida. Inicia sesión de nuevo.",
+                        }}
+                    />
                 )}
 
                 {error && (
-                    <p className="error">
-                        {error}
-                    </p>
+                    <Notice notice={{ type: "error", text: error }} />
                 )}
 
-                <input
-                    type="email"
-                    placeholder="Correo electrónico"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                />
+                <div className="field">
+                    <label className="field-label" htmlFor="login-email">
+                        Correo electrónico
+                    </label>
+                    <input
+                        id="login-email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="nombre@correo.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
+                </div>
 
-                <input
-                    type="password"
-                    placeholder="Contraseña"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                />
+                <div className="field">
+                    <label className="field-label" htmlFor="login-password">
+                        Contraseña
+                    </label>
+                    <input
+                        id="login-password"
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="Tu contraseña"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                </div>
 
-                <button type="submit">
+                <button
+                    type="submit"
+                    className={`btn btn-primary btn-block${sending ? " is-loading" : ""}`}
+                    disabled={sending}
+                    aria-busy={sending}
+                >
                     Iniciar sesión
                 </button>
 
-                <p>
-                    ¿No tienes cuenta?
+                <p className="auth-switch">
+                    ¿No tienes cuenta?{" "}
+                    <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => navigate("/register")}
+                    >
+                        Registrarse
+                    </button>
                 </p>
 
-                <button
-                    type="button"
-                    onClick={() => navigate("/register")}
-                >
-                    Registrarse
-                </button>
-
             </form>
-
-        </div>
+        </AuthLayout>
     );
 };
 

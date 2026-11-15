@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import CourseCard from "../../components/CourseCard";
 import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
+import { IconBroadcast, IconLayers, IconPlus, IconQuiz } from "../../components/icons";
 import { useAuth } from "../../context/auth-context";
 import { useResource } from "../../hooks/useResource";
 import { cloneCourse, getCourses } from "../../services/courseService";
@@ -69,7 +70,7 @@ const ManageCourses = () => {
 
     const renderBody = () => {
         if (loading && !data) {
-            return <Loading text="Cargando cursos..." />;
+            return <Loading text="Cargando cursos..." variant="cards" />;
         }
 
         if (error) {
@@ -84,9 +85,16 @@ const ManageCourses = () => {
 
         if (courses.length === 0) {
             return (
-                <Empty>
-                    Aún no has creado cursos.{" "}
-                    <Link to="/instructor/create-course">Crear curso</Link>
+                <Empty
+                    icon={IconLayers}
+                    title="Aún no has creado cursos"
+                    action={
+                        <Link className="btn btn-primary btn-sm" to="/instructor/create-course">
+                            Crear curso
+                        </Link>
+                    }
+                >
+                    Crea tu primer curso y agrégale contenido.
                 </Empty>
             );
         }
@@ -102,6 +110,7 @@ const ManageCourses = () => {
                         busy={busyId === course.id}
                         showClone={true}
                         showContent={true}
+                        contentLabel="Contenido"
                         onClone={handleClone}
                         onContent={(selected) =>
                             navigate(
@@ -110,11 +119,19 @@ const ManageCourses = () => {
                         }
                     >
                         <div className="actions">
-                            <Link to={`/instructor/course/${course.id}/assessments`}>
+                            <Link
+                                className="btn-link"
+                                to={`/instructor/course/${course.id}/assessments`}
+                            >
+                                <IconQuiz size={16} />
                                 Evaluaciones
                             </Link>
 
-                            <Link to={`/instructor/course/${course.id}/live`}>
+                            <Link
+                                className="btn-link"
+                                to={`/instructor/course/${course.id}/live`}
+                            >
+                                <IconBroadcast size={16} />
                                 Clases en vivo
                             </Link>
                         </div>
@@ -131,6 +148,12 @@ const ManageCourses = () => {
         <Layout
             title="Gestionar cursos"
             subtitle="Contenido, evaluaciones, clases en vivo y clonación de tus cursos."
+            actions={
+                <Link className="btn btn-primary" to="/instructor/create-course">
+                    <IconPlus size={18} />
+                    Crear curso
+                </Link>
+            }
         >
             <Notice notice={notice} />
 

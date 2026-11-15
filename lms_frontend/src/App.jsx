@@ -2,8 +2,7 @@ import {
     BrowserRouter,
     Routes,
     Route,
-    Navigate,
-    Link
+    Navigate
 } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
@@ -12,6 +11,7 @@ import { useAuth } from "./context/auth-context";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/Login";
+import { NotFound, Unauthorized } from "./pages/ErrorPages";
 import Register from "./pages/Register";
 
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -41,24 +41,6 @@ const HOME_BY_ROLE = {
     student: "/student",
     instructor: "/instructor",
     admin: "/admin",
-};
-
-const Unauthorized = () => {
-    const { user } = useAuth();
-
-    return (
-        <div className="login-container">
-            <div className="login-form">
-                <h1>Acceso no autorizado</h1>
-                <p>
-                    No tienes permisos para acceder a esta página.
-                </p>
-                <Link to={HOME_BY_ROLE[user?.role] || "/login"}>
-                    Volver al inicio
-                </Link>
-            </div>
-        </div>
-    );
 };
 
 // Ruta inicial: lleva al panel del rol si hay sesión; si no, al login.
@@ -132,9 +114,9 @@ const App = () => {
 
                     <Route path="/" element={<Home />} />
 
-                    {/* F2: comodín siempre al final */}
+                    {/* F2: comodín siempre al final (página 404 con regreso al inicio) */}
 
-                    <Route path="*" element={<Home />} />
+                    <Route path="*" element={<NotFound />} />
 
                 </Routes>
 

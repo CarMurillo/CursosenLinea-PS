@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Layout from "../../components/Layout";
+import CourseTabs from "../../components/CourseTabs";
 import StateBadge from "../../components/StateBadge";
 import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
+import { IconCheck, IconLock, IconPlus, IconQuiz } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import {
     addQuestion,
@@ -72,57 +74,90 @@ const QuestionForm = ({ assessmentId, onDone }) => {
         }
     };
 
+    const id = (name) => `q-${assessmentId}-${name}`;
+
     return (
         <form className="question-block" onSubmit={handleSubmit}>
-            <strong>Nueva pregunta</strong>
+            <strong className="question-title">Nueva pregunta</strong>
 
             <Notice notice={notice} />
 
-            <input
-                placeholder="Enunciado"
-                value={form.text}
-                onChange={(e) => setForm({ ...form, text: e.target.value })}
-                required
-            />
-
-            <textarea
-                rows={4}
-                placeholder="Opciones, una por línea"
-                value={form.options}
-                onChange={(e) => setForm({ ...form, options: e.target.value })}
-            />
-
-            <label>
-                Respuesta correcta
-                <select
-                    value={form.correct_option}
-                    onChange={(e) =>
-                        setForm({ ...form, correct_option: e.target.value })
-                    }
-                >
-                    {(options.length ? options : ["(escribe opciones)"]).map(
-                        (option, index) => (
-                            <option key={index} value={index}>
-                                {index + 1}. {option}
-                            </option>
-                        )
-                    )}
-                </select>
-            </label>
-
-            <label>
-                Puntos
+            <div className="field">
+                <label className="field-label" htmlFor={id("text")}>
+                    Enunciado
+                </label>
                 <input
-                    type="number"
-                    min="1"
-                    value={form.points}
-                    onChange={(e) => setForm({ ...form, points: e.target.value })}
+                    id={id("text")}
+                    value={form.text}
+                    onChange={(e) => setForm({ ...form, text: e.target.value })}
+                    required
                 />
-            </label>
+            </div>
 
-            <button type="submit" className="btn-secondary" disabled={sending}>
-                Agregar pregunta
-            </button>
+            <div className="field">
+                <label className="field-label" htmlFor={id("options")}>
+                    Opciones
+                </label>
+                <textarea
+                    id={id("options")}
+                    rows={4}
+                    placeholder="Una opción por línea"
+                    aria-describedby={id("options-hint")}
+                    value={form.options}
+                    onChange={(e) => setForm({ ...form, options: e.target.value })}
+                />
+                <span className="field-hint" id={id("options-hint")}>
+                    Mínimo 2 opciones, una por línea.
+                </span>
+            </div>
+
+            <div className="field-row">
+                <div className="field">
+                    <label className="field-label" htmlFor={id("correct")}>
+                        Respuesta correcta
+                    </label>
+                    <select
+                        id={id("correct")}
+                        value={form.correct_option}
+                        onChange={(e) =>
+                            setForm({ ...form, correct_option: e.target.value })
+                        }
+                    >
+                        {(options.length ? options : ["(escribe opciones)"]).map(
+                            (option, index) => (
+                                <option key={index} value={index}>
+                                    {index + 1}. {option}
+                                </option>
+                            )
+                        )}
+                    </select>
+                </div>
+
+                <div className="field">
+                    <label className="field-label" htmlFor={id("points")}>
+                        Puntos
+                    </label>
+                    <input
+                        id={id("points")}
+                        type="number"
+                        min="1"
+                        value={form.points}
+                        onChange={(e) => setForm({ ...form, points: e.target.value })}
+                    />
+                </div>
+            </div>
+
+            <div className="form-footer">
+                <button
+                    type="submit"
+                    className={`btn btn-secondary btn-sm${sending ? " is-loading" : ""}`}
+                    disabled={sending}
+                    aria-busy={sending}
+                >
+                    <IconPlus size={16} />
+                    Agregar pregunta
+                </button>
+            </div>
         </form>
     );
 };
@@ -163,17 +198,19 @@ const AssessmentCard = ({ assessment, onChanged }) => {
     const attempts = assessment.attempts || [];
 
     return (
-        <div className="panel">
-            <h3>{assessment.title}</h3>
-
-            <div>
+        <article className="panel">
+            <div className="card-head">
+                <h3 className="card-title">{assessment.title}</h3>
                 <StateBadge state={assessment.state} />
-                <span className="muted">
-                    {assessment.question_count} preguntas - {assessment.max_score} pts -
-                    aprueba con {assessment.passing_score}% - {assessment.max_attempts}{" "}
-                    intento(s) - {attempts.length} intento(s) recibidos
-                </span>
             </div>
+
+            <p className="meta-inline">
+                <span>{assessment.question_count} preguntas</span>
+                <span>{assessment.max_score} pts</span>
+                <span>Aprueba con {assessment.passing_score}%</span>
+                <span>{assessment.max_attempts} intento(s)</span>
+                <span>{attempts.length} intento(s) recibidos</span>
+            </p>
 
             {assessment.description && <p>{assessment.description}</p>}
 
@@ -182,32 +219,37 @@ const AssessmentCard = ({ assessment, onChanged }) => {
             <div className="actions">
                 <button
                     type="button"
-                    className="btn-primary"
+                    className="btn btn-primary btn-sm"
                     disabled={busy || !isDraft}
                     title={isDraft ? "" : "Solo se publica una evaluación en borrador"}
                     onClick={() => runTransition(publishAssessment, "Publicada")}
                 >
+                    <IconCheck size={16} />
                     Publicar
                 </button>
 
                 <button
                     type="button"
-                    className="btn-danger"
+                    className="btn btn-danger btn-sm"
                     disabled={busy || !isPublished}
                     title={isPublished ? "" : "Solo se cierra una evaluación publicada"}
                     onClick={() => runTransition(closeAssessment, "Cerrada")}
                 >
+                    <IconLock size={16} />
                     Cerrar
                 </button>
             </div>
 
             {(assessment.questions || []).length > 0 && (
-                <ol style={{ paddingLeft: 20 }}>
+                <ol className="question-list">
                     {assessment.questions.map((question) => (
                         <li key={question.question_id}>
-                            {question.text} ({question.points} pts)
+                            <span>
+                                {question.text}{" "}
+                                <span className="muted">({question.points} pts)</span>
+                            </span>
                             <span className="muted">
-                                {" "}- correcta:{" "}
+                                Correcta:{" "}
                                 {question.options?.[question.correct_option] ?? "-"}
                             </span>
                         </li>
@@ -218,7 +260,7 @@ const AssessmentCard = ({ assessment, onChanged }) => {
             {isDraft && (
                 <QuestionForm assessmentId={assessment.id} onDone={onChanged} />
             )}
-        </div>
+        </article>
     );
 };
 
@@ -287,7 +329,7 @@ const ManageAssessments = () => {
         }
 
         if (!data || data.length === 0) {
-            return <Empty>Este curso aún no tiene evaluaciones.</Empty>;
+            return <Empty icon={IconQuiz}>Este curso aún no tiene evaluaciones.</Empty>;
         }
 
         return data.map((assessment) => (
@@ -302,60 +344,90 @@ const ManageAssessments = () => {
     return (
         <Layout
             title="Evaluaciones del curso"
-            subtitle="Ciclo de vida: borrador -> publicada -> cerrada. El backend valida cada transición."
+            subtitle="Ciclo de vida: borrador → publicada → cerrada. El backend valida cada transición."
+            back={{ to: "/instructor/courses", label: "Mis cursos" }}
         >
-            <div className="actions">
-                <Link to="/instructor/courses">Volver a mis cursos</Link>
-                <Link to={`/instructor/course/${courseId}/content`}>Contenido</Link>
-                <Link to={`/instructor/course/${courseId}/live`}>Clases en vivo</Link>
-            </div>
+            <CourseTabs courseId={courseId} />
 
             <Notice notice={notice} />
 
-            <form className="course-form" onSubmit={handleCreate}>
-                <h3>Nueva evaluación</h3>
+            <div className="split">
+                <form className="form-card" onSubmit={handleCreate}>
+                    <h2 className="form-section-title">Nueva evaluación</h2>
 
-                <label>Título</label>
-                <input
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    required
-                />
+                    <div className="field">
+                        <label className="field-label" htmlFor="assessment-title">
+                            Título
+                        </label>
+                        <input
+                            id="assessment-title"
+                            name="title"
+                            value={form.title}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                <label>Descripción</label>
-                <textarea
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                />
+                    <div className="field">
+                        <label className="field-label" htmlFor="assessment-description">
+                            Descripción
+                        </label>
+                        <textarea
+                            id="assessment-description"
+                            name="description"
+                            value={form.description}
+                            onChange={handleChange}
+                        />
+                    </div>
 
-                <label>Puntaje mínimo para aprobar (%)</label>
-                <input
-                    name="passing_score"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={form.passing_score}
-                    onChange={handleChange}
-                />
+                    <div className="field-row">
+                        <div className="field">
+                            <label className="field-label" htmlFor="assessment-passing">
+                                Mínimo para aprobar (%)
+                            </label>
+                            <input
+                                id="assessment-passing"
+                                name="passing_score"
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={form.passing_score}
+                                onChange={handleChange}
+                            />
+                        </div>
 
-                <label>Intentos máximos</label>
-                <input
-                    name="max_attempts"
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={form.max_attempts}
-                    onChange={handleChange}
-                />
+                        <div className="field">
+                            <label className="field-label" htmlFor="assessment-attempts">
+                                Intentos máximos
+                            </label>
+                            <input
+                                id="assessment-attempts"
+                                name="max_attempts"
+                                type="number"
+                                min="1"
+                                max="20"
+                                value={form.max_attempts}
+                                onChange={handleChange}
+                            />
+                        </div>
+                    </div>
 
-                <button type="submit" className="btn-primary" disabled={sending}>
-                    Crear evaluación
-                </button>
-            </form>
+                    <div className="form-footer">
+                        <button
+                            type="submit"
+                            className={`btn btn-primary${sending ? " is-loading" : ""}`}
+                            disabled={sending}
+                            aria-busy={sending}
+                        >
+                            Crear evaluación
+                        </button>
+                    </div>
+                </form>
 
-            {renderList()}
+                <section className="split-aside section" aria-label="Evaluaciones existentes">
+                    {renderList()}
+                </section>
+            </div>
         </Layout>
     );
 };

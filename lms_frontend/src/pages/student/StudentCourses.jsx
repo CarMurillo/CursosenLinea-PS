@@ -12,6 +12,14 @@ import {
 } from "../../services/courseService";
 import { processPayment } from "../../services/paymentService";
 import { getErrorMessage } from "../../services/errors";
+import { IconCompass, IconSearch } from "../../components/icons";
+import { courseKind } from "../../utils/format";
+
+const PRICE_FILTERS = [
+    { value: "all", label: "Todos" },
+    { value: "free", label: "Gratis" },
+    { value: "premium", label: "Premium" },
+];
 
 // Wompi opera en pesos colombianos y Stripe en dólares (ambos simulados).
 const CURRENCY_BY_GATEWAY = {
@@ -38,6 +46,10 @@ const StudentCourses = () => {
 
     const [notice, setNotice] = useState(null);
     const [busyId, setBusyId] = useState(null);
+
+    const [query, setQuery] = useState("");
+    const [kind, setKind] = useState("all");
+    const [price, setPrice] = useState("all");
 
     const goToContent = (course) =>
         navigate(`/student/course/${course.id}/content`);
@@ -108,7 +120,7 @@ const StudentCourses = () => {
 
     const renderBody = () => {
         if (loading && !data) {
-            return <Loading text="Cargando cursos..." />;
+            return <Loading text="Cargando cursos..." variant="cards" />;
         }
 
         if (error) {
@@ -122,43 +134,130 @@ const StudentCourses = () => {
         }
 
         if (!data || data.courses.length === 0) {
-            return <Empty>No hay cursos publicados todavía.</Empty>;
+            return (
+                <Empty icon={IconCompass} title="Catálogo vacío">
+                    No hay cursos publicados todavía.
+                </Empty>
+            );
         }
 
+        // Filtros en el cliente: texto, tipo y precio.
+        const text = query.trim().toLowerCase();
+        const visible = data.courses.filter((course) => {
+            const matchesText =
+                !text ||
+                `${course.title} ${course.instructor ?? ""}`.toLowerCase().includes(text);
+            const matchesKind = kind === "all" || courseKind(course) === kind;
+            const matchesPrice =
+                price === "all" ||
+                (price === "free" && !(Number(course.price) > 0)) ||
+                (price === "premium" && course.premium);
+
+            return matchesText && matchesKind && matchesPrice;
+        });
+
         return (
-            <div className="course-grid">
+            <>
+                <div className="toolbar" role="search">
+                    <div className="search">
+                        <IconSearch size={18} />
+                        <label className="sr-only" htmlFor="catalog-search">
+                            Buscar cursos
+                        </label>
+                        <input
+                            id="catalog-search"
+                            type="search"
+                            placeholder="Buscar por título o instructor"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </div>
 
-                {data.courses.map((course) => {
-                    const enrolled = data.enrolledIds.has(course.id);
+                    <label className="sr-only" htmlFor="catalog-kind">
+                        Tipo de curso
+                    </label>
+                    <select
+                        id="catalog-kind"
+                        value={kind}
+                        onChange={(e) => setKind(e.target.value)}
+                    >
+                        <option value="all">Todos los tipos</option>
+                        <option value="video">Video bajo demanda</option>
+                        <option value="live">Clase en vivo</option>
+                    </select>
 
-                    return (
-                        <CourseCard
-                            key={course.id}
-                            course={course}
-                            busy={busyId === course.id}
-                            showPay={!enrolled && course.price > 0}
-                            showEnroll={!enrolled && course.price === 0}
-                            showContent={enrolled}
-                            onPay={handlePay}
-                            onEnroll={handleEnroll}
-                            onContent={goToContent}
-                        >
-                            {enrolled && (
-                                <span className="badge badge-published">
-                                    Inscrito
-                                </span>
-                            )}
-                        </CourseCard>
-                    );
-                })}
+                    <div className="segmented" role="group" aria-label="Precio">
+                        {PRICE_FILTERS.map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                aria-pressed={price === option.value}
+                                onClick={() => setPrice(option.value)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-            </div>
+                <p className="result-count" aria-live="polite">
+                    {visible.length === 1
+                        ? "1 curso"
+                        : `${visible.length} cursos`}
+                </p>
+
+                {visible.length === 0 ? (
+                    <Empty
+                        icon={IconSearch}
+                        title="Sin resultados"
+                        action={
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                    setQuery("");
+                                    setKind("all");
+                                    setPrice("all");
+                                }}
+                            >
+                                Limpiar filtros
+                            </button>
+                        }
+                    >
+                        Ningún curso coincide con la búsqueda.
+                    </Empty>
+                ) : (
+                    <div className="course-grid">
+
+                        {visible.map((course) => {
+                            const enrolled = data.enrolledIds.has(course.id);
+
+                            return (
+                                <CourseCard
+                                    key={course.id}
+                                    course={course}
+                                    busy={busyId === course.id}
+                                    enrolled={enrolled}
+                                    showPay={!enrolled && course.price > 0}
+                                    showEnroll={!enrolled && course.price === 0}
+                                    showContent={enrolled}
+                                    contentLabel="Ir al curso"
+                                    onPay={handlePay}
+                                    onEnroll={handleEnroll}
+                                    onContent={goToContent}
+                                />
+                            );
+                        })}
+
+                    </div>
+                )}
+            </>
         );
     };
 
     return (
         <Layout
-            title="Cursos disponibles"
+            title="Explorar cursos"
             subtitle="Los cursos de pago se habilitan al aprobarse el pago (pasarela simulada)."
         >
             <Notice notice={notice} />

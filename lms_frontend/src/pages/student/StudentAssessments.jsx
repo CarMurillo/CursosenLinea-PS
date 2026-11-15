@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import StateBadge from "../../components/StateBadge";
 import { Empty, ErrorState, Loading } from "../../components/Status";
+import { IconArrowRight, IconQuiz } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import { getCourseAssessmentsWithAttempts } from "../../services/assessmentService";
 
@@ -35,7 +36,11 @@ const StudentAssessments = () => {
         }
 
         if (!data || data.length === 0) {
-            return <Empty>Este curso no tiene evaluaciones publicadas.</Empty>;
+            return (
+                <Empty icon={IconQuiz}>
+                    Este curso no tiene evaluaciones publicadas.
+                </Empty>
+            );
         }
 
         return (
@@ -53,31 +58,38 @@ const StudentAssessments = () => {
                         0,
                         assessment.max_attempts - attempts.length
                     );
+                    const canTake = assessment.state === "published" && remaining > 0;
 
                     return (
-                        <div className="course-card" key={assessment.id}>
-                            <h3>{assessment.title}</h3>
-
-                            <div>
+                        <article className="card" key={assessment.id}>
+                            <div className="card-head">
                                 <StateBadge state={assessment.state} />
+                                <span className="muted">
+                                    Intentos {attempts.length}/{assessment.max_attempts}
+                                </span>
                             </div>
 
+                            <h3 className="card-title">{assessment.title}</h3>
+
                             {assessment.description && (
-                                <p>{assessment.description}</p>
+                                <p className="muted">{assessment.description}</p>
                             )}
 
-                            <p className="muted">
-                                {assessment.question_count} preguntas - aprueba con{" "}
-                                {assessment.passing_score}% - intentos:{" "}
-                                {attempts.length}/{assessment.max_attempts}
+                            <p className="meta-inline">
+                                <span>{assessment.question_count} preguntas</span>
+                                <span>Aprueba con {assessment.passing_score}%</span>
                             </p>
 
                             {best && (
-                                <p className={best.passed ? "success" : "error"}>
-                                    Mejor resultado: {best.score}/{best.max_score} (
-                                    {best.percentage}%){" "}
-                                    {best.passed ? "Aprobado" : "No aprobado"}
-                                </p>
+                                <div className="result-line">
+                                    <span>
+                                        Mejor resultado: <strong>{best.score}/{best.max_score}</strong>{" "}
+                                        ({best.percentage}%)
+                                    </span>
+                                    <span className={`badge ${best.passed ? "badge-success" : "badge-error"}`}>
+                                        {best.passed ? "Aprobado" : "No aprobado"}
+                                    </span>
+                                </div>
                             )}
 
                             {assessment.state === "closed" && (
@@ -86,12 +98,16 @@ const StudentAssessments = () => {
                                 </p>
                             )}
 
-                            <Link to={`/student/assessments/${assessment.id}`}>
-                                {assessment.state === "published" && remaining > 0
-                                    ? "Rendir evaluación"
-                                    : "Ver resultados"}
-                            </Link>
-                        </div>
+                            <div className="card-footer">
+                                <Link
+                                    className={`btn btn-sm ${canTake ? "btn-primary" : "btn-secondary"}`}
+                                    to={`/student/assessments/${assessment.id}`}
+                                >
+                                    {canTake ? "Rendir evaluación" : "Ver resultados"}
+                                    <IconArrowRight size={16} />
+                                </Link>
+                            </div>
+                        </article>
                     );
                 })}
             </div>
@@ -99,13 +115,10 @@ const StudentAssessments = () => {
     };
 
     return (
-        <Layout title="Evaluaciones">
-            <p>
-                <Link to={`/student/course/${courseId}/content`}>
-                    Volver al contenido
-                </Link>
-            </p>
-
+        <Layout
+            title="Evaluaciones"
+            back={{ to: `/student/course/${courseId}/content`, label: "Volver al contenido" }}
+        >
             {renderBody()}
         </Layout>
     );

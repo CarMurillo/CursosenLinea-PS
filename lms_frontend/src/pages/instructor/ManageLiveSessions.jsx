@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Layout from "../../components/Layout";
+import CourseTabs from "../../components/CourseTabs";
 import LiveSessionCard from "../../components/LiveSessionCard";
 import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
+import { IconBroadcast, IconClose, IconPlay } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import {
     createLiveSession,
@@ -115,33 +117,39 @@ const ManageLiveSessions = () => {
         }
 
         if (!data || data.length === 0) {
-            return <Empty>No hay clases programadas para este curso.</Empty>;
+            return (
+                <Empty icon={IconBroadcast}>
+                    No hay clases programadas para este curso.
+                </Empty>
+            );
         }
 
         return (
             <div className="course-grid">
                 {data.map((session) => (
                     <LiveSessionCard key={session.id} session={session}>
-                        <div className="actions">
+                        <div className="card-footer">
                             <button
                                 type="button"
-                                className="btn-primary"
+                                className="btn btn-primary btn-sm"
                                 disabled={busyId === session.id || session.state !== "scheduled"}
                                 onClick={() =>
                                     runTransition(session, startLiveSession, "Iniciada")
                                 }
                             >
+                                <IconPlay size={16} />
                                 Iniciar
                             </button>
 
                             <button
                                 type="button"
-                                className="btn-danger"
+                                className="btn btn-danger btn-sm"
                                 disabled={busyId === session.id || session.state !== "live"}
                                 onClick={() =>
                                     runTransition(session, endLiveSession, "Terminada")
                                 }
                             >
+                                <IconClose size={16} />
                                 Terminar
                             </button>
                         </div>
@@ -155,50 +163,67 @@ const ManageLiveSessions = () => {
         <Layout
             title="Clases en vivo"
             subtitle="Videoconferencia simulada. Al terminar, la clase queda grabada y se notifica a los inscritos."
+            back={{ to: "/instructor/courses", label: "Mis cursos" }}
         >
-            <div className="actions">
-                <Link to="/instructor/courses">Volver a mis cursos</Link>
-                <Link to={`/instructor/course/${courseId}/content`}>Contenido</Link>
-                <Link to={`/instructor/course/${courseId}/assessments`}>Evaluaciones</Link>
-            </div>
+            <CourseTabs courseId={courseId} />
 
             <Notice notice={notice} />
 
-            <form className="course-form" onSubmit={handleCreate}>
-                <h3>Programar clase</h3>
+            <form className="form-card" onSubmit={handleCreate}>
+                <h2 className="form-section-title">Programar clase</h2>
 
-                <label>Título</label>
-                <input
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    required
-                />
+                <div className="field-row">
+                    <div className="field">
+                        <label className="field-label" htmlFor="session-title">
+                            Título
+                        </label>
+                        <input
+                            id="session-title"
+                            name="title"
+                            value={form.title}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                <label>Fecha y hora (opcional)</label>
-                <input
-                    name="scheduled_at"
-                    type="datetime-local"
-                    value={form.scheduled_at}
-                    onChange={handleChange}
-                />
+                    <div className="field">
+                        <label className="field-label" htmlFor="session-date">
+                            Fecha y hora (opcional)
+                        </label>
+                        <input
+                            id="session-date"
+                            name="scheduled_at"
+                            type="datetime-local"
+                            value={form.scheduled_at}
+                            onChange={handleChange}
+                        />
+                    </div>
 
-                <label>Duración (minutos)</label>
-                <input
-                    name="duration_minutes"
-                    type="number"
-                    min="1"
-                    value={form.duration_minutes}
-                    onChange={handleChange}
-                />
+                    <div className="field">
+                        <label className="field-label" htmlFor="session-duration">
+                            Duración (minutos)
+                        </label>
+                        <input
+                            id="session-duration"
+                            name="duration_minutes"
+                            type="number"
+                            min="1"
+                            value={form.duration_minutes}
+                            onChange={handleChange}
+                        />
+                    </div>
+                </div>
 
-                <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={busyId === "new"}
-                >
-                    Programar
-                </button>
+                <div className="form-footer">
+                    <button
+                        type="submit"
+                        className={`btn btn-primary${busyId === "new" ? " is-loading" : ""}`}
+                        disabled={busyId === "new"}
+                        aria-busy={busyId === "new"}
+                    >
+                        Programar
+                    </button>
+                </div>
             </form>
 
             {renderList()}

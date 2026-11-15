@@ -1,13 +1,18 @@
 import { Link } from "react-router-dom";
 
 import Layout from "../../components/Layout";
+import { BrandMark } from "../../components/Brand";
 import { Empty, ErrorState, Loading } from "../../components/Status";
+import { IconAward } from "../../components/icons";
+import { useAuth } from "../../context/auth-context";
 import { useResource } from "../../hooks/useResource";
 import { getMyCertificates } from "../../services/certificateService";
+import { formatDate } from "../../utils/format";
 
 // Certificados emitidos por CertificateIssuerObserver al aprobar una evaluación.
 const StudentCertificates = () => {
 
+    const { user } = useAuth();
     const { data, error, loading, reload } = useResource(getMyCertificates);
 
     const renderBody = () => {
@@ -27,38 +32,65 @@ const StudentCertificates = () => {
 
         if (!data || data.length === 0) {
             return (
-                <Empty>
-                    Todavía no tienes certificados. Aprueba la evaluación de un
-                    curso con certificado para obtener uno.{" "}
-                    <Link to="/student/my-courses">Ir a Mis cursos</Link>
+                <Empty
+                    icon={IconAward}
+                    title="Todavía no tienes certificados"
+                    action={
+                        <Link className="btn btn-primary btn-sm" to="/student/my-courses">
+                            Ir a Mis cursos
+                        </Link>
+                    }
+                >
+                    Aprueba la evaluación de un curso con certificado para obtener uno.
                 </Empty>
             );
         }
 
         return (
-            <div className="course-grid">
+            <div className="diploma-grid">
                 {data.map((certificate) => (
-                    <div className="course-card" key={certificate.certificate_id}>
-                        <h3>{certificate.course_title}</h3>
+                    <article className="diploma" key={certificate.certificate_id}>
+                        <div className="diploma-inner">
+                            <div className="diploma-head">
+                                <BrandMark size={28} />
+                                <span className="diploma-kicker">Certificado de aprobación</span>
+                            </div>
 
-                        <p>Puntaje: {certificate.score}</p>
+                            <p className="diploma-text">Se otorga a</p>
+                            <p className="diploma-name">{user?.full_name}</p>
+                            <p className="diploma-text">por aprobar el curso</p>
+                            <h3 className="diploma-course">{certificate.course_title}</h3>
 
-                        <p className="muted">
-                            Emitido: {new Date(certificate.issued_at).toLocaleString()}
-                        </p>
+                            <dl className="diploma-meta">
+                                <div>
+                                    <dt>Fecha</dt>
+                                    <dd>{formatDate(certificate.issued_at)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Nota</dt>
+                                    <dd>{certificate.score}</dd>
+                                </div>
+                                <div>
+                                    <dt>Código</dt>
+                                    <dd><code>{certificate.verification_code}</code></dd>
+                                </div>
+                            </dl>
 
-                        <p>
-                            Código de verificación:{" "}
-                            <code>{certificate.verification_code}</code>
-                        </p>
-                    </div>
+                            <span className="diploma-seal" aria-hidden="true">
+                                <IconAward size={28} />
+                            </span>
+                        </div>
+                    </article>
                 ))}
             </div>
         );
     };
 
     return (
-        <Layout title="Mis certificados">
+        <Layout
+            title="Mis certificados"
+            subtitle="Cada certificado incluye un código de verificación único."
+        >
             {renderBody()}
         </Layout>
     );

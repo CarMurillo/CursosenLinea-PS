@@ -1,8 +1,18 @@
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import Layout from "../../components/Layout";
+import CourseTabs from "../../components/CourseTabs";
 import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
+import {
+    IconBook,
+    IconChevronDown,
+    IconClock,
+    IconDocument,
+    IconLayers,
+    IconQuiz,
+    IconVideo
+} from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
 import {
     addLesson,
@@ -10,6 +20,17 @@ import {
     getCourseSummary
 } from "../../services/courseService";
 import { getErrorMessage } from "../../services/errors";
+
+const LESSON_ICONS = {
+    video: IconVideo,
+    quiz: IconQuiz,
+    document: IconDocument,
+};
+
+const LessonIcon = ({ type }) => {
+    const Icon = LESSON_ICONS[type] || IconDocument;
+    return <Icon size={16} />;
+};
 
 
 const ManageContent = () => {
@@ -99,26 +120,32 @@ const ManageContent = () => {
         }
     };
 
+    // Árbol del Composite: módulos (acordeón) y lecciones (filas).
     const renderItems = (items) =>
         items.map((item, index) =>
             item.lesson_id ? (
-                <p key={item.lesson_id}>
-                    {item.title}
-                    {" - "}
-                    {item.label || item.type}
-                    {" - "}
-                    {item.duration_minutes ?? 0} min
-                    {" - "}
-                    {item.provider}
-                </p>
+                <li className="tree-lesson" key={item.lesson_id}>
+                    <LessonIcon type={item.type} />
+                    <span className="tree-lesson-title">{item.title}</span>
+                    <span className="muted tree-lesson-meta">
+                        {item.label || item.type} · {item.duration_minutes ?? 0} min · {item.provider}
+                    </span>
+                </li>
             ) : (
-                <div
-                    className="dashboard-card"
-                    key={`${item.title}-${index}`}
-                >
-                    <h3>{item.title}</h3>
-                    {renderItems(item.items || [])}
-                </div>
+                <li key={`${item.title}-${index}`}>
+                    <details className="disclosure" open>
+                        <summary>
+                            <span className="module-title">
+                                <IconLayers size={16} />
+                                {item.title}
+                            </span>
+                            <IconChevronDown size={16} className="chevron" />
+                        </summary>
+                        <ul className="tree">
+                            {renderItems(item.items || [])}
+                        </ul>
+                    </details>
+                </li>
             )
         );
 
@@ -142,12 +169,22 @@ const ManageContent = () => {
         return (
             <>
                 <div className="panel">
-                    <h2>Resumen del curso (Visitor)</h2>
+                    <h2>Resumen del curso</h2>
+                    <span className="badge badge-category-behavioral fit">Visitor</span>
 
-                    <p>
-                        {summary.total_modules} módulos -{" "}
-                        {summary.total_lessons} lecciones -{" "}
-                        {summary.total_minutes} min en total
+                    <p className="meta-inline">
+                        <span>
+                            <IconLayers size={16} />
+                            {summary.total_modules} módulos
+                        </span>
+                        <span>
+                            <IconBook size={16} />
+                            {summary.total_lessons} lecciones
+                        </span>
+                        <span>
+                            <IconClock size={16} />
+                            {summary.total_minutes} min en total
+                        </span>
                     </p>
 
                     <p className="muted">
@@ -158,26 +195,31 @@ const ManageContent = () => {
                     </p>
 
                     {summary.syllabus_markdown && (
-                        <details>
-                            <summary>Temario (Markdown)</summary>
-                            <pre className="code-block">
-                                {summary.syllabus_markdown}
-                            </pre>
+                        <details className="disclosure">
+                            <summary>
+                                Temario (Markdown)
+                                <IconChevronDown size={16} className="chevron" />
+                            </summary>
+                            <div className="disclosure-body">
+                                <pre className="code-block">
+                                    {summary.syllabus_markdown}
+                                </pre>
+                            </div>
                         </details>
                     )}
                 </div>
 
-                <h2 style={{ marginTop: 25 }}>
-                    Contenido actual
-                </h2>
+                <div className="panel">
+                    <h2>Contenido actual</h2>
 
-                {!content.items || content.items.length === 0 ? (
-                    <Empty>El curso aún no tiene lecciones.</Empty>
-                ) : (
-                    <div className="dashboard-cards">
-                        {renderItems(content.items)}
-                    </div>
-                )}
+                    {!content.items || content.items.length === 0 ? (
+                        <Empty icon={IconBook}>El curso aún no tiene lecciones.</Empty>
+                    ) : (
+                        <ul className="tree tree-root">
+                            {renderItems(content.items)}
+                        </ul>
+                    )}
+                </div>
             </>
         );
     };
@@ -185,150 +227,153 @@ const ManageContent = () => {
 
     return (
 
-        <Layout title="Administrar contenido">
+        <Layout
+            title="Administrar contenido"
+            subtitle="Agrega lecciones por módulo. La vista previa muestra el árbol del curso."
+            back={{ to: "/instructor/courses", label: "Mis cursos" }}
+        >
 
-            <div className="actions">
-                <Link to="/instructor/courses">Volver a mis cursos</Link>
-                <Link to={`/instructor/course/${courseId}/assessments`}>
-                    Evaluaciones
-                </Link>
-                <Link to={`/instructor/course/${courseId}/live`}>
-                    Clases en vivo
-                </Link>
-            </div>
+            <CourseTabs courseId={courseId} />
 
             <Notice notice={notice} />
 
-            <form
-                className="course-form"
-                onSubmit={
-                    handleSubmit
-                }
-            >
+            <div className="split">
 
-                <label>
-                    Módulo
-                </label>
-
-                <input
-                    name="module_title"
-                    value={
-                        form.module_title
-                    }
-                    onChange={
-                        handleChange
-                    }
-                    required
-                />
-
-
-                <label>
-                    Nombre de la lección
-                </label>
-
-                <input
-                    name="title"
-                    value={
-                        form.title
-                    }
-                    onChange={
-                        handleChange
-                    }
-                    required
-                />
-
-
-                <label>
-                    ID multimedia
-                </label>
-
-                <input
-                    name="media_id"
-                    value={
-                        form.media_id
-                    }
-                    onChange={
-                        handleChange
-                    }
-                    required
-                />
-
-
-                <label>
-                    Duración (minutos)
-                </label>
-
-                <input
-                    name="duration_minutes"
-                    type="number"
-                    min="1"
-                    value={form.duration_minutes}
-                    onChange={handleChange}
-                    placeholder="Opcional"
-                />
-
-
-                <label>
-                    Proveedor
-                </label>
-
-                <select
-                    name="provider"
-                    value={
-                        form.provider
-                    }
-                    onChange={
-                        handleChange
+                <form
+                    className="form-card"
+                    onSubmit={
+                        handleSubmit
                     }
                 >
+                    <section className="form-section">
+                        <h2 className="form-section-title">Ubicación</h2>
 
-                    <option value="vimeo">
-                        Vimeo
-                    </option>
+                        <div className="field">
+                            <label className="field-label" htmlFor="lesson-module">
+                                Módulo
+                            </label>
+                            <input
+                                id="lesson-module"
+                                name="module_title"
+                                value={form.module_title}
+                                onChange={handleChange}
+                                required
+                            />
+                            <span className="field-hint">
+                                Si el módulo no existe, se crea.
+                            </span>
+                        </div>
+                    </section>
 
-                    <option value="s3">
-                        AWS S3
-                    </option>
+                    <section className="form-section">
+                        <h2 className="form-section-title">Lección</h2>
 
-                </select>
+                        <div className="field">
+                            <label className="field-label" htmlFor="lesson-title">
+                                Nombre de la lección
+                            </label>
+                            <input
+                                id="lesson-title"
+                                name="title"
+                                value={form.title}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
 
+                        <div className="field-row">
+                            <div className="field">
+                                <label className="field-label" htmlFor="lesson-type">
+                                    Tipo de contenido
+                                </label>
+                                <select
+                                    id="lesson-type"
+                                    name="lesson_type"
+                                    value={form.lesson_type}
+                                    onChange={handleChange}
+                                >
+                                    <option value="video">
+                                        Video
+                                    </option>
+                                    <option value="quiz">
+                                        Quiz
+                                    </option>
+                                </select>
+                            </div>
 
-                <label>
-                    Tipo de contenido
-                </label>
+                            <div className="field">
+                                <label className="field-label" htmlFor="lesson-duration">
+                                    Duración (minutos)
+                                </label>
+                                <input
+                                    id="lesson-duration"
+                                    name="duration_minutes"
+                                    type="number"
+                                    min="1"
+                                    value={form.duration_minutes}
+                                    onChange={handleChange}
+                                    placeholder="Opcional"
+                                />
+                            </div>
+                        </div>
+                    </section>
 
-                <select
-                    name="lesson_type"
-                    value={
-                        form.lesson_type
-                    }
-                    onChange={
-                        handleChange
-                    }
-                >
+                    <section className="form-section">
+                        <h2 className="form-section-title">Multimedia</h2>
 
-                    <option value="video">
-                        Video
-                    </option>
+                        <div className="field-row">
+                            <div className="field">
+                                <label className="field-label" htmlFor="lesson-provider">
+                                    Proveedor
+                                </label>
+                                <select
+                                    id="lesson-provider"
+                                    name="provider"
+                                    value={form.provider}
+                                    onChange={handleChange}
+                                >
+                                    <option value="vimeo">
+                                        Vimeo
+                                    </option>
+                                    <option value="s3">
+                                        AWS S3
+                                    </option>
+                                </select>
+                            </div>
 
-                    <option value="quiz">
-                        Quiz
-                    </option>
+                            <div className="field">
+                                <label className="field-label" htmlFor="lesson-media">
+                                    ID multimedia
+                                </label>
+                                <input
+                                    id="lesson-media"
+                                    name="media_id"
+                                    value={form.media_id}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </section>
 
-                </select>
+                    <div className="form-footer">
+                        <button
+                            type="submit"
+                            className={`btn btn-primary${sending ? " is-loading" : ""}`}
+                            disabled={sending}
+                            aria-busy={sending}
+                        >
+                            Agregar lección
+                        </button>
+                    </div>
 
+                </form>
 
-                <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={sending}
-                >
-                    Agregar lección
-                </button>
+                <aside className="split-aside" aria-label="Vista previa del curso">
+                    {renderContent()}
+                </aside>
 
-            </form>
-
-            {renderContent()}
+            </div>
 
         </Layout>
     );

@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 
 import Layout from "../../components/Layout";
 import { Notice } from "../../components/Status";
+import { IconArrowRight } from "../../components/icons";
 import { createCourse } from "../../services/courseService";
 import { getErrorMessage } from "../../services/errors";
+import { formatPrice } from "../../utils/format";
 
 const EMPTY_FORM = {
     title: "",
@@ -58,7 +60,7 @@ const CreateCourse = () => {
             setCreated(course);
             setNotice({
                 type: "success",
-                text: `Curso "${course.title}" creado. Precio final: $${course.price}.`,
+                text: `Curso "${course.title}" creado. Precio final: ${formatPrice(course.price)}.`,
             });
 
             setForm(EMPTY_FORM);
@@ -73,93 +75,146 @@ const CreateCourse = () => {
         }
     };
 
+    // Vista previa del precio final (solo visual; el backend calcula el real).
+    const basePrice = Number(form.price) || 0;
+    const finalPrice = form.premium ? basePrice * 1.2 : basePrice;
+
     return (
-        <Layout title="Crear curso">
+        <Layout
+            title="Crear curso"
+            subtitle="Define los datos básicos. Luego podrás agregar contenido, evaluaciones y clases."
+            back={{ to: "/instructor/courses", label: "Mis cursos" }}
+        >
 
             <Notice notice={notice} />
 
             {created && (
-                <p>
-                    <Link to={`/instructor/course/${created.id}/content`}>
-                        Agregar contenido a "{created.title}"
-                    </Link>
-                </p>
+                <Link
+                    className="btn btn-secondary next-step"
+                    to={`/instructor/course/${created.id}/content`}
+                >
+                    Agregar contenido a "{created.title}"
+                    <IconArrowRight size={18} />
+                </Link>
             )}
 
             <form
-                className="course-form"
+                className="form-card form-narrow"
                 onSubmit={handleSubmit}
             >
-                <label>Nombre del curso</label>
-                <input
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    required
-                />
+                <section className="form-section">
+                    <h2 className="form-section-title">Información general</h2>
 
-                <label>Precio base (0 = gratis)</label>
-                <input
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.price}
-                    onChange={handleChange}
-                    required
-                />
+                    <div className="field">
+                        <label className="field-label" htmlFor="course-title">
+                            Nombre del curso
+                        </label>
+                        <input
+                            id="course-title"
+                            name="title"
+                            placeholder="Ej.: Patrones de diseño en Python"
+                            value={form.title}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                <label>Tipo de curso</label>
-                <select
-                    name="course_type"
-                    value={form.course_type}
-                    onChange={handleChange}
-                >
-                    <option value="video">
-                        Video bajo demanda
-                    </option>
-                    <option value="live">
-                        Clase en vivo
-                    </option>
-                </select>
+                    <div className="field">
+                        <label className="field-label" htmlFor="course-type">
+                            Tipo de curso
+                        </label>
+                        <select
+                            id="course-type"
+                            name="course_type"
+                            value={form.course_type}
+                            onChange={handleChange}
+                        >
+                            <option value="video">
+                                Video bajo demanda
+                            </option>
+                            <option value="live">
+                                Clase en vivo
+                            </option>
+                        </select>
+                    </div>
+                </section>
 
-                <label className="inline-label">
-                    <input
-                        type="checkbox"
-                        name="premium"
-                        checked={form.premium}
-                        onChange={(e) =>
-                            setForm({
-                                ...form,
-                                premium: e.target.checked
-                            })
-                        }
-                    />
-                    Curso Premium (recargo de 20% sobre el precio base)
-                </label>
+                <section className="form-section">
+                    <h2 className="form-section-title">Precio y beneficios</h2>
 
-                <label className="inline-label">
-                    <input
-                        type="checkbox"
-                        name="certificate"
-                        checked={form.certificate}
-                        onChange={(e) =>
-                            setForm({
-                                ...form,
-                                certificate: e.target.checked
-                            })
-                        }
-                    />
-                    Incluir certificado
-                </label>
+                    <div className="field">
+                        <label className="field-label" htmlFor="course-price">
+                            Precio base
+                        </label>
+                        <input
+                            id="course-price"
+                            name="price"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            aria-describedby="course-price-hint"
+                            value={form.price}
+                            onChange={handleChange}
+                            required
+                        />
+                        <span className="field-hint" id="course-price-hint">
+                            Escribe 0 para un curso gratuito.
+                        </span>
+                    </div>
 
-                <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={sending}
-                >
-                    {sending ? "Publicando..." : "Publicar curso"}
-                </button>
+                    <label className="check">
+                        <input
+                            type="checkbox"
+                            name="premium"
+                            checked={form.premium}
+                            onChange={(e) =>
+                                setForm({
+                                    ...form,
+                                    premium: e.target.checked
+                                })
+                            }
+                        />
+                        <span className="check-text">
+                            <strong>Curso Premium</strong>
+                            <span className="muted">Recargo de 20% sobre el precio base.</span>
+                        </span>
+                    </label>
+
+                    <label className="check">
+                        <input
+                            type="checkbox"
+                            name="certificate"
+                            checked={form.certificate}
+                            onChange={(e) =>
+                                setForm({
+                                    ...form,
+                                    certificate: e.target.checked
+                                })
+                            }
+                        />
+                        <span className="check-text">
+                            <strong>Incluir certificado</strong>
+                            <span className="muted">Se emite al aprobar la evaluación del curso.</span>
+                        </span>
+                    </label>
+
+                    <p className="price-preview">
+                        Precio final estimado:{" "}
+                        <strong>{formatPrice(finalPrice)}</strong>
+                    </p>
+                </section>
+
+                <div className="form-footer">
+                    <button
+                        type="submit"
+                        className={`btn btn-primary${sending ? " is-loading" : ""}`}
+                        disabled={sending}
+                        aria-busy={sending}
+                    >
+                        Publicar curso
+                    </button>
+                </div>
             </form>
         </Layout>
     );

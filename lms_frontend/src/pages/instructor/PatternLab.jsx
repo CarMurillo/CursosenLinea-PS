@@ -3,7 +3,18 @@ import { useCallback, useState } from "react";
 import Layout from "../../components/Layout";
 import ProgressBar from "../../components/ProgressBar";
 import StateBadge from "../../components/StateBadge";
-import { Empty, ErrorState, Loading } from "../../components/Status";
+import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
+import {
+    IconActivity,
+    IconBell,
+    IconChart,
+    IconClipboard,
+    IconCopy,
+    IconLayers,
+    IconLock,
+    IconPlay,
+    IconStar
+} from "../../components/icons";
 import { useAuth } from "../../context/auth-context";
 import { useResource } from "../../hooks/useResource";
 import {
@@ -59,24 +70,47 @@ const runStep = async (label, expected, action) => {
 };
 
 const StepLog = ({ steps }) => (
-    <ul className="lab-log">
+    <ol className="lab-log">
         {steps.map((step, index) => (
             <li key={index} className={step.ok ? "ok" : "fail"}>
                 <strong>{index + 1}. {step.label}</strong>
-                {" -> "}
-                {step.status === 200 ? "200 OK" : `${step.status ?? "sin respuesta"}`}
-                {step.data?.state && (
-                    <>
-                        {" "}<StateBadge state={step.data.state} />
-                    </>
-                )}
-                {step.detail && <span className="muted"> {step.detail}</span>}
-                <span className="muted">
-                    {" "}(esperado: {step.expected === "ok" ? "éxito" : step.expected})
+                <span className={`badge ${step.status === 200 ? "badge-success" : "badge-error"}`}>
+                    {step.status === 200 ? "200 OK" : `${step.status ?? "sin respuesta"}`}
+                </span>
+                {step.data?.state && <StateBadge state={step.data.state} />}
+                {step.detail && <span className="muted">{step.detail}</span>}
+                <span className="muted lab-expected">
+                    Esperado: {step.expected === "ok" ? "éxito" : step.expected}
+                    {" · "}
+                    {step.ok ? "cumple" : "no cumple"}
                 </span>
             </li>
         ))}
-    </ul>
+    </ol>
+);
+
+const CATEGORY = {
+    creational: "Creacional",
+    structural: "Estructural",
+    behavioral: "Comportamiento",
+};
+
+// Tarjeta de un patrón: nombre, categoría GoF, descripción, acción y resultado.
+const PatternCard = ({ name, category, icon: Icon, children }) => (
+    <section className="card pattern-card" aria-labelledby={`patron-${name}`}>
+        <div className="pattern-head">
+            <span className="stat-icon" aria-hidden="true">
+                <Icon size={22} />
+            </span>
+            <div className="pattern-name">
+                <h2 id={`patron-${name}`}>{name}</h2>
+                <span className={`badge badge-category-${category}`}>
+                    {CATEGORY[category]}
+                </span>
+            </div>
+        </div>
+        {children}
+    </section>
 );
 
 export default function PatternLab() {
@@ -274,262 +308,302 @@ export default function PatternLab() {
     }
 
     const counterKeys = ["audit_events", "notifications", "live_sessions"];
+    const noCourse = !selected;
 
     return (
         <Layout
             title="Laboratorio de patrones GoF"
             subtitle="Cada demostración llama a los endpoints reales del backend."
         >
-            <section className="panel">
-                <h2>Curso de trabajo</h2>
+            <section className="panel lab-course">
+                <div className="field">
+                    <label className="field-label" htmlFor="lab-course">
+                        Curso de trabajo
+                    </label>
 
-                {myCourses.length === 0 ? (
-                    <Empty>
-                        Necesitas un curso propio para las demostraciones de
-                        Observer, State y Visitor.
-                    </Empty>
-                ) : (
-                    <select
-                        value={selected?.id || ""}
-                        onChange={(e) => setCourseId(e.target.value)}
-                        aria-label="Curso para las demostraciones"
-                    >
-                        {myCourses.map((course) => (
-                            <option key={course.id} value={course.id}>
-                                {course.title}
-                            </option>
-                        ))}
-                    </select>
-                )}
+                    {myCourses.length === 0 ? (
+                        <Empty icon={IconLayers}>
+                            Necesitas un curso propio para las demostraciones de
+                            Observer, State y Visitor.
+                        </Empty>
+                    ) : (
+                        <select
+                            id="lab-course"
+                            value={selected?.id || ""}
+                            onChange={(e) => setCourseId(e.target.value)}
+                        >
+                            {myCourses.map((course) => (
+                                <option key={course.id} value={course.id}>
+                                    {course.title}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                </div>
             </section>
 
-            <section className="panel">
-                <h2>Observer: eventos del dominio</h2>
-                <p>
-                    Programa, inicia y termina una clase en vivo. Al terminar se
-                    publica <code>live_session_recorded</code> en el bus único;
-                    los observadores de auditoría y notificaciones reaccionan sin
-                    que el caso de uso los conozca.
-                </p>
+            <div className="pattern-grid">
 
-                <button
-                    type="button"
-                    className="btn-primary"
-                    disabled={!selected || busy !== ""}
-                    onClick={runObserverDemo}
-                >
-                    {busy === "observer" ? "Ejecutando..." : "Ejecutar demostración"}
-                </button>
+                <PatternCard name="Observer" category="behavioral" icon={IconBell}>
+                    <p className="muted">
+                        Programa, inicia y termina una clase en vivo. Al terminar se
+                        publica <code>live_session_recorded</code> en el bus único;
+                        los observadores de auditoría y notificaciones reaccionan sin
+                        que el caso de uso los conozca.
+                    </p>
 
-                {observer?.error && <p className="error">{observer.error}</p>}
+                    <div>
+                        <button
+                            type="button"
+                            className={`btn btn-primary btn-sm${busy === "observer" ? " is-loading" : ""}`}
+                            disabled={noCourse || busy !== ""}
+                            aria-busy={busy === "observer"}
+                            onClick={runObserverDemo}
+                        >
+                            <IconPlay size={16} />
+                            Ejecutar demostración
+                        </button>
+                    </div>
 
-                {observer && !observer.error && (
-                    <>
-                        <p>
-                            Clase <strong>{observer.session.title}</strong>:{" "}
-                            <StateBadge state={observer.session.state} />
-                            {observer.session.recording_url && (
-                                <a
-                                    href={observer.session.recording_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    grabación
-                                </a>
-                            )}
-                        </p>
+                    {observer?.error && (
+                        <Notice notice={{ type: "error", text: observer.error }} />
+                    )}
 
-                        <table className="users-table">
-                            <thead>
-                                <tr>
-                                    <th>Contador (/health)</th>
-                                    <th>Antes</th>
-                                    <th>Después</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {counterKeys.map((key) => (
-                                    <tr key={key}>
-                                        <td>{key}</td>
-                                        <td>{observer.before?.[key]}</td>
-                                        <td>{observer.after?.[key]}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    {observer && !observer.error && (
+                        <div className="lab-result">
+                            <p className="lab-result-line">
+                                Clase <strong>{observer.session.title}</strong>
+                                <StateBadge state={observer.session.state} />
+                                {observer.session.recording_url && (
+                                    <a
+                                        href={observer.session.recording_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        Ver grabación
+                                    </a>
+                                )}
+                            </p>
 
-                        <h3>Notificaciones nuevas para ti</h3>
-                        {observer.newNotifications.length === 0 ? (
-                            <p className="muted">Ninguna.</p>
-                        ) : (
-                            <ul className="lab-log">
-                                {observer.newNotifications.map((item) => (
-                                    <li className="ok" key={item.notification_id}>
-                                        <strong>{item.title}</strong>: {item.message}{" "}
-                                        <span className="muted">({item.event_type})</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                            <div className="table-wrap">
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Contador (/health)</th>
+                                            <th>Antes</th>
+                                            <th>Después</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {counterKeys.map((key) => (
+                                            <tr key={key}>
+                                                <td><code>{key}</code></td>
+                                                <td>{observer.before?.[key]}</td>
+                                                <td>
+                                                    <strong>{observer.after?.[key]}</strong>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
 
-                        {observer.audit && (
-                            <>
-                                <h3>Auditoría (últimos live_session_recorded)</h3>
+                            <h3 className="lab-subtitle">Notificaciones nuevas para ti</h3>
+                            {observer.newNotifications.length === 0 ? (
+                                <p className="muted">Ninguna.</p>
+                            ) : (
                                 <ul className="lab-log">
-                                    {observer.audit.map((entry) => (
-                                        <li key={entry.event_id}>
-                                            {new Date(entry.occurred_at).toLocaleString()} -{" "}
-                                            {entry.event_type} -{" "}
-                                            <code>{JSON.stringify(entry.payload)}</code>
+                                    {observer.newNotifications.map((item) => (
+                                        <li className="ok" key={item.notification_id}>
+                                            <strong>{item.title}</strong>
+                                            <span>{item.message}</span>
+                                            <span className="badge">{item.event_type}</span>
                                         </li>
                                     ))}
                                 </ul>
-                            </>
-                        )}
-                    </>
-                )}
-            </section>
+                            )}
 
-            <section className="panel">
-                <h2>State: ciclo de vida de una evaluación</h2>
-                <p>
-                    Crea una evaluación y prueba transiciones válidas e inválidas.
-                    Cada estado (borrador, publicada, cerrada) decide qué
-                    operaciones permite; las inválidas responden 409.
-                </p>
+                            {observer.audit && (
+                                <>
+                                    <h3 className="lab-subtitle">
+                                        Auditoría (últimos live_session_recorded)
+                                    </h3>
+                                    <pre className="code-block">
+                                        {JSON.stringify(
+                                            observer.audit.map((entry) => ({
+                                                fecha: new Date(entry.occurred_at).toLocaleString(),
+                                                evento: entry.event_type,
+                                                datos: entry.payload,
+                                            })),
+                                            null,
+                                            2
+                                        )}
+                                    </pre>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </PatternCard>
 
-                <button
-                    type="button"
-                    className="btn-primary"
-                    disabled={!selected || busy !== ""}
-                    onClick={runStateDemo}
-                >
-                    {busy === "state" ? "Ejecutando..." : "Ejecutar demostración"}
-                </button>
+                <PatternCard name="State" category="behavioral" icon={IconActivity}>
+                    <p className="muted">
+                        Crea una evaluación y prueba transiciones válidas e inválidas.
+                        Cada estado (borrador, publicada, cerrada) decide qué
+                        operaciones permite; las inválidas responden 409.
+                    </p>
 
-                {stateSteps.length > 0 && <StepLog steps={stateSteps} />}
-            </section>
-
-            <section className="panel">
-                <h2>Visitor: operaciones sobre el contenido</h2>
-                <p>
-                    Los visitantes recorren el árbol Composite (módulos y
-                    lecciones) para calcular duración, resumen por tipo, temario
-                    y progreso sin modificar las clases del contenido.
-                </p>
-
-                <button
-                    type="button"
-                    className="btn-primary"
-                    disabled={!selected || busy !== ""}
-                    onClick={runVisitorDemo}
-                >
-                    {busy === "visitor" ? "Calculando..." : "Calcular resumen"}
-                </button>
-
-                {visitor?.error && <p className="error">{visitor.error}</p>}
-
-                {visitor?.summary && (
-                    <>
-                        <p>
-                            <strong>{visitor.summary.title}</strong>:{" "}
-                            {visitor.summary.total_modules} módulos -{" "}
-                            {visitor.summary.total_lessons} lecciones -{" "}
-                            {visitor.summary.total_minutes} min
-                        </p>
-
-                        <p className="muted">
-                            Lecciones por tipo:{" "}
-                            {Object.entries(visitor.summary.lessons_by_type || {})
-                                .map(([type, count]) => `${type}: ${count}`)
-                                .join(", ") || "ninguna"}
-                        </p>
-
-                        {visitor.progress ? (
-                            <ProgressBar progress={visitor.progress} />
-                        ) : (
-                            <p className="muted">Sin progreso registrado.</p>
-                        )}
-
-                        {visitor.summary.syllabus_markdown && (
-                            <pre className="code-block">
-                                {visitor.summary.syllabus_markdown}
-                            </pre>
-                        )}
-                    </>
-                )}
-            </section>
-
-            <section className="panel">
-                <h2>Proxy: control de acceso</h2>
-                <p>
-                    El acceso al contenido de un curso Premium lo
-                    decide el proxy en el backend según el usuario
-                    autenticado y su inscripción. Elige un curso:
-                </p>
-
-                {data.courses.length === 0 && <p>No hay cursos creados.</p>}
-
-                <div className="actions">
-                    {data.courses.map((course) => (
+                    <div>
                         <button
-                            key={course.id}
                             type="button"
-                            className="btn-secondary"
-                            disabled={busy !== ""}
-                            onClick={() => checkAccess(course)}
+                            className={`btn btn-primary btn-sm${busy === "state" ? " is-loading" : ""}`}
+                            disabled={noCourse || busy !== ""}
+                            aria-busy={busy === "state"}
+                            onClick={runStateDemo}
                         >
-                            {course.title}
-                            {course.premium ? " (Premium)" : ""}
+                            <IconPlay size={16} />
+                            Ejecutar demostración
                         </button>
-                    ))}
-                </div>
+                    </div>
 
-                {busy === "proxy" && <p>Consultando...</p>}
+                    {stateSteps.length > 0 && (
+                        <div className="lab-result">
+                            <StepLog steps={stateSteps} />
+                        </div>
+                    )}
+                </PatternCard>
 
-                {proxyResult && (
-                    proxyResult.ok ? (
-                        <p className="success">
-                            Acceso permitido: {proxyResult.course} ({proxyResult.modules} módulos)
-                        </p>
-                    ) : (
-                        <p className="error">
-                            Acceso denegado a {proxyResult.course}: {proxyResult.text}
-                        </p>
-                    )
-                )}
-            </section>
+                <PatternCard name="Visitor" category="behavioral" icon={IconLayers}>
+                    <p className="muted">
+                        Los visitantes recorren el árbol Composite (módulos y
+                        lecciones) para calcular duración, resumen por tipo, temario
+                        y progreso sin modificar las clases del contenido.
+                    </p>
 
-            <section className="panel">
-                <h2>Flyweight: tipos de contenido</h2>
-                <p>
-                    Todas las lecciones del mismo tipo comparten un
-                    único objeto de metadatos en el backend.
-                </p>
-
-                <div className="course-grid">
-                    {data.metadata.map((item) => (
-                        <article
-                            className="course-card"
-                            key={item.content_type}
+                    <div>
+                        <button
+                            type="button"
+                            className={`btn btn-primary btn-sm${busy === "visitor" ? " is-loading" : ""}`}
+                            disabled={noCourse || busy !== ""}
+                            aria-busy={busy === "visitor"}
+                            onClick={runVisitorDemo}
                         >
-                            <h3>{item.label}</h3>
-                            <p>Tipo: {item.content_type}</p>
-                            <p>Icono: {item.icon}</p>
-                        </article>
-                    ))}
-                </div>
-            </section>
+                            <IconChart size={16} />
+                            Calcular resumen
+                        </button>
+                    </div>
 
-            <section className="panel">
-                <h2>Facade: operaciones centralizadas</h2>
-                <p>
-                    La gestión de cursos utiliza una fachada en el
-                    backend para listar, crear, clonar e inscribir
-                    estudiantes. Puedes verificarlo desde la sección
-                    de gestión de cursos.
-                </p>
-            </section>
+                    {visitor?.error && (
+                        <Notice notice={{ type: "error", text: visitor.error }} />
+                    )}
+
+                    {visitor?.summary && (
+                        <div className="lab-result">
+                            <p>
+                                <strong>{visitor.summary.title}</strong>
+                            </p>
+
+                            <p className="meta-inline">
+                                <span>{visitor.summary.total_modules} módulos</span>
+                                <span>{visitor.summary.total_lessons} lecciones</span>
+                                <span>{visitor.summary.total_minutes} min</span>
+                            </p>
+
+                            <p className="muted">
+                                Lecciones por tipo:{" "}
+                                {Object.entries(visitor.summary.lessons_by_type || {})
+                                    .map(([type, count]) => `${type}: ${count}`)
+                                    .join(", ") || "ninguna"}
+                            </p>
+
+                            {visitor.progress ? (
+                                <ProgressBar progress={visitor.progress} />
+                            ) : (
+                                <p className="muted">Sin progreso registrado.</p>
+                            )}
+
+                            {visitor.summary.syllabus_markdown && (
+                                <pre className="code-block">
+                                    {visitor.summary.syllabus_markdown}
+                                </pre>
+                            )}
+                        </div>
+                    )}
+                </PatternCard>
+
+                <PatternCard name="Proxy" category="structural" icon={IconLock}>
+                    <p className="muted">
+                        El acceso al contenido de un curso Premium lo
+                        decide el proxy en el backend según el usuario
+                        autenticado y su inscripción. Elige un curso:
+                    </p>
+
+                    {data.courses.length === 0 && (
+                        <p className="muted">No hay cursos creados.</p>
+                    )}
+
+                    <div className="chip-list">
+                        {data.courses.map((course) => (
+                            <button
+                                key={course.id}
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                disabled={busy !== ""}
+                                onClick={() => checkAccess(course)}
+                            >
+                                {course.premium && <IconStar size={14} />}
+                                {course.title}
+                                {course.premium && <span className="sr-only"> (Premium)</span>}
+                            </button>
+                        ))}
+                    </div>
+
+                    {busy === "proxy" && <Loading text="Consultando..." />}
+
+                    {proxyResult && (
+                        proxyResult.ok ? (
+                            <Notice
+                                notice={{
+                                    type: "success",
+                                    text: `Acceso permitido: ${proxyResult.course} (${proxyResult.modules} módulos)`,
+                                }}
+                            />
+                        ) : (
+                            <Notice
+                                notice={{
+                                    type: "error",
+                                    text: `Acceso denegado a ${proxyResult.course}: ${proxyResult.text}`,
+                                }}
+                            />
+                        )
+                    )}
+                </PatternCard>
+
+                <PatternCard name="Flyweight" category="structural" icon={IconCopy}>
+                    <p className="muted">
+                        Todas las lecciones del mismo tipo comparten un
+                        único objeto de metadatos en el backend.
+                    </p>
+
+                    {data.metadata.length === 0 ? (
+                        <p className="muted">No se pudieron cargar los metadatos.</p>
+                    ) : (
+                        <pre className="code-block">
+                            {JSON.stringify(data.metadata, null, 2)}
+                        </pre>
+                    )}
+                </PatternCard>
+
+                <PatternCard name="Facade" category="structural" icon={IconClipboard}>
+                    <p className="muted">
+                        La gestión de cursos utiliza una fachada en el
+                        backend para listar, crear, clonar e inscribir
+                        estudiantes. Puedes verificarlo desde la sección
+                        de gestión de cursos.
+                    </p>
+                </PatternCard>
+
+            </div>
         </Layout>
     );
 }
+

@@ -8,6 +8,27 @@ import { useResource } from "../../hooks/useResource";
 import { getCourseContent, getCourseSummary } from "../../services/courseService";
 import { completeLesson, getMyProgress } from "../../services/progressService";
 import { getErrorMessage, getErrorStatus } from "../../services/errors";
+import {
+    IconBook,
+    IconBroadcast,
+    IconCheck,
+    IconChevronDown,
+    IconClock,
+    IconDocument,
+    IconExternal,
+    IconLayers,
+    IconLock,
+    IconPlay,
+    IconQuiz,
+    IconStar,
+    IconVideo
+} from "../../components/icons";
+
+const LESSON_ICONS = {
+    video: IconVideo,
+    quiz: IconQuiz,
+    document: IconDocument,
+};
 
 const CourseContent = () => {
 
@@ -63,60 +84,112 @@ const CourseContent = () => {
 
     const renderLesson = (lesson) => {
         const done = completed.has(lesson.lesson_id);
+        const busy = busyLesson === lesson.lesson_id;
+        const LessonIcon = LESSON_ICONS[lesson.type] || IconDocument;
 
         return (
-            <div className="lesson-row" key={lesson.lesson_id}>
-                <div>
-                    <h3>{lesson.title}</h3>
+            <li
+                className={`lesson-row${done ? " is-done" : ""}`}
+                key={lesson.lesson_id}
+            >
+                <span className={`lesson-icon lesson-icon-${lesson.type}`} aria-hidden="true">
+                    <LessonIcon size={20} />
+                </span>
 
-                    <p className="muted">
-                        {lesson.label || lesson.type}
-                        {lesson.icon && ` (${lesson.icon})`}
-                        {" - "}
-                        {lesson.duration_minutes ?? 0} min
-                        {" - "}
-                        {lesson.provider}
+                <div className="lesson-body">
+                    <h4 className="lesson-title">{lesson.title}</h4>
+
+                    <p className="meta-inline">
+                        <span>{lesson.label || lesson.type}</span>
+                        <span>
+                            <IconClock size={14} />
+                            {lesson.duration_minutes ?? 0} min
+                        </span>
+                        {lesson.provider && <span>{lesson.provider}</span>}
                     </p>
+                </div>
 
+                <div className="lesson-actions">
                     {lesson.url && (
                         <a
+                            className="btn btn-ghost btn-sm"
                             href={lesson.url}
                             target="_blank"
                             rel="noreferrer"
                         >
+                            <IconExternal size={16} />
                             Abrir contenido
                         </a>
                     )}
-                </div>
 
-                {done ? (
-                    <span className="lesson-done">Completada</span>
-                ) : (
-                    <button
-                        type="button"
-                        className="btn-primary"
-                        disabled={busyLesson === lesson.lesson_id}
-                        onClick={() => handleComplete(lesson)}
-                    >
-                        Marcar como completada
-                    </button>
-                )}
-            </div>
+                    {done ? (
+                        <span className="badge badge-enrolled">
+                            <IconCheck size={14} />
+                            Completada
+                        </span>
+                    ) : (
+                        <button
+                            type="button"
+                            className={`btn btn-secondary btn-sm${busy ? " is-loading" : ""}`}
+                            disabled={busy}
+                            aria-busy={busy}
+                            onClick={() => handleComplete(lesson)}
+                        >
+                            <IconCheck size={16} />
+                            Marcar como completada
+                        </button>
+                    )}
+                </div>
+            </li>
         );
     };
 
     // El contenido es un Composite: módulos con `items` (lecciones o submódulos).
-    const renderItems = (items) =>
-        items.map((item, index) =>
-            item.lesson_id ? (
-                renderLesson(item)
-            ) : (
-                <div className="panel" key={`${item.title}-${index}`}>
-                    <h2>{item.title}</h2>
-                    {renderItems(item.items || [])}
-                </div>
-            )
+    // Las lecciones se agrupan en una lista; los módulos se muestran como acordeón.
+    const renderItems = (items) => {
+        const lessons = items.filter((item) => item.lesson_id);
+        const modules = items.filter((item) => !item.lesson_id);
+
+        return (
+            <>
+                {lessons.length > 0 && (
+                    <ul className="lesson-list">{lessons.map(renderLesson)}</ul>
+                )}
+
+                {modules.map((item, index) => {
+                    const moduleLessons = (item.items || []).filter((child) => child.lesson_id);
+                    const doneCount = moduleLessons.filter((child) =>
+                        completed.has(child.lesson_id)
+                    ).length;
+
+                    return (
+                        <details
+                            className="disclosure module"
+                            key={`${item.title}-${index}`}
+                            open
+                        >
+                            <summary>
+                                <span className="module-title">
+                                    <IconLayers size={18} />
+                                    {item.title}
+                                </span>
+                                <span className="module-meta">
+                                    <span className="muted">
+                                        {doneCount}/{moduleLessons.length} completadas
+                                    </span>
+                                    <IconChevronDown size={18} className="chevron" />
+                                </span>
+                            </summary>
+
+                            <div className="disclosure-body">
+                                {renderItems(item.items || [])}
+                            </div>
+                        </details>
+                    );
+                })}
+            </>
         );
+    };
 
     const renderBody = () => {
         if (loading && !data) {
@@ -126,14 +199,25 @@ const CourseContent = () => {
         if (error) {
             if (getErrorStatus(error) === 403) {
                 return (
-                    <div className="status status-error">
+                    <div className="lock-panel">
+                        <span className="lock-icon" aria-hidden="true">
+                            <IconLock size={32} />
+                        </span>
+
+                        <h2>Contenido bloqueado</h2>
+
                         <p>
                             {getErrorMessage(error, "No tienes acceso a este curso.")}
                         </p>
-                        <p>
-                            Este curso requiere pago o inscripción.{" "}
-                            <Link to="/student/courses">Ir al catálogo</Link>
+
+                        <p className="muted">
+                            Este curso requiere pago o inscripción.
                         </p>
+
+                        <Link className="btn btn-premium" to="/student/courses">
+                            <IconStar size={18} />
+                            Adquirir en el catálogo
+                        </Link>
                     </div>
                 );
             }
@@ -151,46 +235,79 @@ const CourseContent = () => {
 
         return (
             <>
-                <div className="panel">
-                    <h2>{summary?.title || content.title}</h2>
+                <section className="course-hero">
+                    <div className="course-hero-main">
+                        <h1>{summary?.title || content.title}</h1>
 
-                    <p className="muted">
-                        {summary?.total_modules ?? 0} módulos -{" "}
-                        {summary?.total_lessons ?? 0} lecciones -{" "}
-                        {summary?.total_minutes ?? 0} min en total
-                    </p>
+                        {content.instructor && (
+                            <p className="course-hero-instructor">
+                                {content.instructor}
+                            </p>
+                        )}
 
-                    {progress ? (
-                        <ProgressBar progress={progress} />
-                    ) : (
-                        <p className="muted">
-                            Inscríbete para registrar tu progreso.
+                        <p className="meta-inline">
+                            <span>
+                                <IconLayers size={16} />
+                                {summary?.total_modules ?? 0} módulos
+                            </span>
+                            <span>
+                                <IconPlay size={16} />
+                                {summary?.total_lessons ?? 0} lecciones
+                            </span>
+                            <span>
+                                <IconClock size={16} />
+                                {summary?.total_minutes ?? 0} min en total
+                            </span>
                         </p>
-                    )}
 
-                    <div className="actions">
-                        <Link to={`/student/course/${courseId}/assessments`}>
-                            Evaluaciones
-                        </Link>
-                        <Link to={`/student/course/${courseId}/live`}>
-                            Clases en vivo
-                        </Link>
+                        <div className="actions">
+                            <Link
+                                className="btn btn-secondary btn-sm"
+                                to={`/student/course/${courseId}/assessments`}
+                            >
+                                <IconQuiz size={16} />
+                                Evaluaciones
+                            </Link>
+                            <Link
+                                className="btn btn-secondary btn-sm"
+                                to={`/student/course/${courseId}/live`}
+                            >
+                                <IconBroadcast size={16} />
+                                Clases en vivo
+                            </Link>
+                        </div>
                     </div>
-                </div>
+
+                    <div className="course-hero-progress">
+                        <h2 className="course-hero-label">Tu progreso</h2>
+                        {progress ? (
+                            <ProgressBar progress={progress} compact />
+                        ) : (
+                            <p className="muted">
+                                Inscríbete para registrar tu progreso.
+                            </p>
+                        )}
+                    </div>
+                </section>
 
                 <Notice notice={notice} />
 
                 {!content.items || content.items.length === 0 ? (
-                    <Empty>Este curso todavía no tiene lecciones.</Empty>
+                    <Empty icon={IconBook}>Este curso todavía no tiene lecciones.</Empty>
                 ) : (
-                    renderItems(content.items)
+                    <section className="section" aria-label="Temario">
+                        {renderItems(content.items)}
+                    </section>
                 )}
             </>
         );
     };
 
     return (
-        <Layout title="Contenido del curso">
+        <Layout
+            title={data && !error ? undefined : "Contenido del curso"}
+            back={{ to: "/student/my-courses", label: "Mis cursos" }}
+        >
             {renderBody()}
         </Layout>
     );

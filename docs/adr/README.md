@@ -9,3 +9,5 @@
 | [0005](0005-repositorios-en-memoria-y-persistencia-minima.md) | Repositorios en memoria y persistencia mínima |
 | [0006](0006-autorizacion-por-rol-y-ownership.md) | Autorización por rol y ownership |
 | [0007](0007-videoconferencia-jitsi-simulada.md) | Videoconferencia Jitsi simulada (y pagos simulados) |
+| [0008](0008-strategy-en-recomendaciones.md) | Strategy en el motor de recomendaciones |
+| [0009](0009-template-method-en-pasarelas-de-pago.md) | Template Method en las pasarelas de pago |

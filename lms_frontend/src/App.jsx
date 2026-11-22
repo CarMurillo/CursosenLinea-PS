@@ -34,6 +34,7 @@ import PatternLab from "./pages/instructor/PatternLab";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
+import UserDetail from "./pages/admin/UserDetail";
 import AdminCourses from "./pages/admin/AdminCourses";
 import AuditLog from "./pages/admin/AuditLog";
 
@@ -107,6 +108,7 @@ const App = () => {
 
                     <Route path="/admin" element={guard("admin", <AdminDashboard />)} />
                     <Route path="/admin/users" element={guard("admin", <Users />)} />
+                    <Route path="/admin/users/:userId" element={guard("admin", <UserDetail />)} />
                     <Route path="/admin/courses" element={guard("admin", <AdminCourses />)} />
                     <Route path="/admin/audit-log" element={guard("admin", <AuditLog />)} />
 

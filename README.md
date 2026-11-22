@@ -2,7 +2,7 @@
 
 LMS académico con backend **FastAPI + SQLAlchemy/SQLite** (`lms_backend/`) y frontend
 **React 19 + Vite + react-router-dom 7 + axios** (`lms_frontend/`). El objetivo es demostrar
-arquitectura hexagonal por módulos, 15 patrones GoF integrados en flujos reales, pruebas automatizadas,
+arquitectura hexagonal por módulos, 17 patrones GoF integrados en flujos reales (los 15 pedidos más Strategy y Template Method), pruebas automatizadas,
 CI y observabilidad mínima.
 
 Funcionalidades:
@@ -17,7 +17,7 @@ Funcionalidades:
 Documentación detallada:
 
 - [`docs/patrones.md`](docs/patrones.md): cada patrón → problema, clases, archivo, endpoint, prueba. Incluye la fe de erratas de la entrega anterior.
-- [`docs/uml/`](docs/uml/): diagramas Mermaid (Observer, State, Visitor, secuencia pago → inscripción → certificado).
+- [`docs/uml/`](docs/uml/): diagramas Mermaid (Observer, State, Visitor, Strategy, Template Method, secuencia pago → inscripción → certificado).
 - [`docs/adr/`](docs/adr/): decisiones de arquitectura.
 
 ## Arquitectura
@@ -122,16 +122,22 @@ Con el backend corriendo, en otra terminal desde `lms_backend/`:
 
 Cuentas (contraseña común `Demo12345`):
 
-| Correo | Rol |
-|---|---|
-| `admin@lms.demo` | admin |
-| `instructor@lms.demo` | instructor |
-| `estudiante@lms.demo` | student |
+| Correo | Rol | Estado tras el seed |
+|---|---|---|
+| `admin@lms.demo` | admin | Ve auditoría, usuarios y todos los cursos |
+| `instructor@lms.demo` | instructor | Iván: Python (gratis), Arquitectura de Software con Patrones (premium) y Diseño de APIs con FastAPI (premium) |
+| `laura@lms.demo` | instructor | Laura: Introducción a Ciencia de Datos (gratis, con certificado), Machine Learning en Vivo (premium) y SQL para Análisis de Datos (gratis) |
+| `estudiante@lms.demo` | student | Sofía: inscrita en Python con 1 lección. **No** está inscrita en Arquitectura: en la demo paga, se inscribe sola, rinde y obtiene el certificado |
+| `carlos@lms.demo` | student | Pagó Arquitectura con Stripe, completó todo y aprobó: **1 certificado** |
+| `valentina@lms.demo` | student | Pagó Arquitectura con Wompi y aprobó Ciencia de Datos: **2 certificados** |
+| `lucia@lms.demo` | student | Pagó Diseño de APIs con Wompi y reprobó: recomendaciones de "refuerzo" |
+| `mateo@lms.demo` | student | Sin cursos: recomendaciones "gratis para empezar" |
 
-Crea el curso gratuito "Fundamentos de Python" (estudiante inscrito con 1 lección completada) y el curso
-premium con certificado "Arquitectura de Software con Patrones" (evaluación publicada y clase en vivo ya
-grabada). El estudiante **no** queda inscrito en el premium: en la demo paga, se inscribe
-automáticamente, rinde la evaluación y obtiene el certificado.
+Para demostrar State en vivo, el seed deja dos cosas a propósito:
+- En Machine Learning en Vivo (Laura), una **clase programada** para mañana, para iniciarla y terminarla en la demo.
+- Una **evaluación en borrador**, para publicarla en la demo.
+
+En Arquitectura quedan una evaluación publicada y una clase ya grabada.
 
 El seed es idempotente. Los cursos, pagos, progreso y evaluaciones viven en memoria: **al reiniciar el
 backend hay que volver a ejecutar el seed** (los usuarios persisten en SQLite) y volver a iniciar sesión.
@@ -196,7 +202,7 @@ Auth: `Authorization: Bearer <access_token>` (de `POST /auth/login`). "Staff" = 
 | GET | `/courses/{course_id}/progress/me` | inscrito/dueño/admin | Visitor, Proxy |
 | GET | `/courses/{course_id}/assessments` | inscrito/dueño/admin | State |
 | GET | `/courses/{course_id}/live-sessions` | inscrito/dueño/admin | State |
-| POST | `/payments/process` | token | Adapter, Observer |
+| POST | `/payments/process` | token | Adapter, Template Method, Observer |
 | GET | `/payments/me` | token | |
 | GET | `/notifications/me` | token | Observer |
 | GET | `/admin/audit-log` | admin | Observer |

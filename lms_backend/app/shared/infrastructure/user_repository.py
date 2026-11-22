@@ -52,3 +52,20 @@ class SqlAlchemyUserRepository(UserRepository):
 
     def get_all(self) -> List[UserModel]:
         return self.db.query(UserModel).all()
+
+    def set_active(self, user_id: str, is_active: bool) -> Optional[UserModel]:
+        model = self.get_by_id(user_id)
+        if model is None:
+            return None
+        model.is_active = bool(is_active)
+        self.db.commit()
+        self.db.refresh(model)
+        return model
+
+    def delete(self, user_id: str) -> bool:
+        model = self.get_by_id(user_id)
+        if model is None:
+            return False
+        self.db.delete(model)
+        self.db.commit()
+        return True

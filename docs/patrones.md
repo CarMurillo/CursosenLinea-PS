@@ -29,10 +29,13 @@ Este documento describe **solo lo que existe en el código** de la rama
 | Observer | `EventType`, `DomainEvent`, `Observer`, `Subject` + 6 observadores | `app/shared/domain/events.py`, `app/shared/domain/observers.py`, `app/modules/*/application/observers.py` | `POST /payments/process`, `POST /courses/{course_id}/enroll`, `GET /notifications/me`, `GET /admin/audit-log` | `test_observer.py` |
 | State | `Assessment` + `DraftState`/`PublishedState`/`ClosedState`; `LiveSession` + `ScheduledState`/`LiveState`/`EndedState`/`RecordedState` | `app/modules/assessments/domain/states.py`, `app/modules/live_sessions/domain/states.py` | `POST /assessments/{assessment_id}/publish`, `/close`, `/attempts`; `POST /live-sessions/{session_id}/start`, `/end` | `test_state.py` |
 | Visitor | `ContentVisitor`, `DurationVisitor`, `ProgressVisitor`, `ContentSummaryVisitor`, `ExportSyllabusVisitor`, `LessonIndexVisitor` | `app/modules/courses/domain/visitor.py` | `GET /courses/{course_id}/content/summary`, `POST /courses/{course_id}/lessons/{lesson_id}/complete`, `GET /courses/{course_id}/progress/me` | `test_visitor.py` |
+| Strategy | `RecommendationRule` + `ReinforceAfterFailedAssessmentRule`, `NextLevelAfterCertificateRule`, `SimilarToActiveCoursesRule`, `FreeCoursesForNewcomersRule`, `PopularCoursesRule`; contexto `RecommendationEngine` | `app/modules/recommendations/domain/strategies.py` | `GET /recommendations/me` | `test_recommendations.py` (p. ej. `::test_reglas_son_estrategias_intercambiables_y_hay_limite`) |
+| Template Method | `TemplatePaymentAdapter.process_payment` (método plantilla) → `StripePaymentAdapter`, `WompiPaymentAdapter` | `app/modules/payments/domain/adapter.py` | `POST /payments/process` | `test_template_method.py`; el Adapter sigue en `test_payments.py` |
 
-Fuera de los 15 patrones pedidos también existe un **Strategy** en recomendaciones
-(`RecommendationRule` y sus reglas en `app/modules/recommendations/domain/strategies.py`,
-probado en `test_recommendations.py::test_reglas_son_estrategias_intercambiables_y_hay_limite`).
+En total hay **17 patrones**: los 15 pedidos más **Strategy** (ya existía en recomendaciones y
+ahora se reconoce como patrón oficial) y **Template Method** (nuevo, en las pasarelas de pago).
+Los candidatos descartados están en "Alternativas analizadas y no implementadas", al final de la
+sección de Comportamiento.
 
 ---
 
@@ -131,6 +134,7 @@ probado en `test_recommendations.py::test_reglas_son_estrategias_intercambiables
   y `WompiPaymentAdapter` adapta `WompiSDK` (referencia propia); ambos devuelven `PaymentResult`.
   Los SDK son **simulados** (no hay red ni claves). Archivo `app/modules/payments/domain/adapter.py`.
   `ProcessPaymentUseCase` elige el adaptador por diccionario (`app/modules/payments/application/use_cases.py`).
+  Ambos adaptadores heredan de `TemplatePaymentAdapter`, que fija el flujo de cobro (ver Template Method).
 - **Videoconferencia**: puerto `VideoConferencePort` (`app/modules/live_sessions/domain/ports.py`) y
   `JitsiAdapter` **simulado** (genera URL de sala y de grabación sin red) en
   `app/modules/live_sessions/infrastructure/jitsi_adapter.py`.
@@ -298,6 +302,104 @@ probado en `test_recommendations.py::test_reglas_son_estrategias_intercambiables
   `lessons_by_type`, `syllabus_markdown`); completar una lección y ver `GET /courses/{id}/progress/me`.
 - **Diagramas**: [`uml/visitor.md`](uml/visitor.md).
 
+### Strategy
+
+- **Problema en el LMS**: el motor de recomendaciones es un objetivo funcional del proyecto. Cada
+  criterio (refuerzo tras reprobar, siguiente nivel tras un certificado, afinidad por progreso,
+  gratis para estudiantes nuevos, popularidad) es un algoritmo distinto, y la lista cambia y crece.
+- **Clases** (`app/modules/recommendations/domain/strategies.py`):
+  - Estrategia abstracta: `RecommendationRule` (ABC) con
+    `recommend(profile, candidates, catalog) -> List[Recommendation]`, atributos `name` y `weight`,
+    y el ayudante `_make(course, reason, bonus)`.
+  - Estrategias concretas: `ReinforceAfterFailedAssessmentRule` (`refuerzo`, peso 4.0),
+    `NextLevelAfterCertificateRule` (`siguiente_nivel`, 3.5), `SimilarToActiveCoursesRule`
+    (`afinidad`, 2.5; usa el progreso que calcula `ProgressVisitor`), `FreeCoursesForNewcomersRule`
+    (`gratis_para_empezar`, 2.0) y `PopularCoursesRule(top=3)` (`popular`, 1.5).
+  - `default_rules()` devuelve las cinco reglas.
+  - Contexto: `RecommendationEngine(rules=None, limit=10)`. Si `rules` es `None`, usa `default_rules()`.
+    Excluye los cursos inscritos y los propios, ejecuta cada regla, se queda con el mayor puntaje
+    por curso, acumula los motivos (`reasons`) y corta en `limit`.
+- **Uso real**: `GetRecommendationsUseCase` (`app/modules/recommendations/application/use_cases.py`)
+  recibe un `engine` opcional. El composition root (`make_recommendations_use_case()` en
+  `app/shared/infrastructure/container.py`) no lo pasa, así que se usan las reglas por defecto.
+- **Endpoint**: `GET /recommendations/me` (`app/modules/recommendations/infrastructure/api.py`), con token.
+- **Pruebas**: `test_recommendations.py`. La que verifica el patrón es
+  `::test_reglas_son_estrategias_intercambiables_y_hay_limite` (motor con una regla nueva definida en
+  la prueba, `limit=1` y reglas probadas por separado). Hay además pruebas por regla
+  (`::test_regla_afinidad_usa_progreso_del_visitor`, `::test_reprobado_recomienda_refuerzo_y_aprobado_lo_anula`,
+  `::test_certificado_recomienda_siguiente_nivel_del_mismo_instructor`, ...) y pruebas del endpoint.
+- **Swagger**: registrar un estudiante nuevo, hacer login y llamar `GET /recommendations/me`. Aparecen
+  sugerencias con `rule` igual a `gratis_para_empezar` o `popular` y su `reason`. Con
+  `estudiante@lms.demo` (inscrito y con una lección completada en el seed) aparecen motivos de
+  `afinidad` ("Llevas N% de ..."). La intercambiabilidad de reglas se demuestra con las pruebas, no por HTTP.
+- **Frontend**: `/patterns` (Laboratorio de patrones, instructor/admin), tarjeta *Strategy* → "Calcular
+  recomendaciones" agrupa las sugerencias por la regla (estrategia) que las generó, con puntaje y motivo.
+- **Por qué se implementó**: sin Strategy, el motor sería un método con un `if/elif` por regla.
+  Con Strategy, agregar o quitar un criterio es una clase nueva o un cambio en la lista (OCP), cada
+  regla se prueba sola (SRP) y el motor se configura por inyección (`rules`, `limit`).
+- **Para qué sirve**: genera recomendaciones explicables. Cada sugerencia lleva su `rule`, su `reason`
+  y la lista `reasons` con todos los motivos que la respaldan.
+- **Diagramas**: [`uml/strategy.md`](uml/strategy.md). Decisión: [ADR 0008](adr/0008-strategy-en-recomendaciones.md).
+
+### Template Method
+
+- **Problema en el LMS**: Stripe y Wompi repetían el mismo flujo de cobro; solo cambiaban la llamada
+  al SDK y la lectura de la respuesta. Una tercera pasarela iba a copiar el flujo otra vez. Tampoco
+  había validación común del monto ni manejo de errores del SDK: una excepción del SDK terminaba en HTTP 500.
+- **Clases** (`app/modules/payments/domain/adapter.py`):
+  - Clase abstracta: `TemplatePaymentAdapter(PaymentGatewayPort)`.
+  - Método plantilla `process_payment(amount, currency, customer_email)`, con pasos fijos:
+    1. Validar el monto (> 0). Si falla, devuelve un rechazo sin llamar al SDK.
+    2. Normalizar la moneda a mayúsculas.
+    3. Gancho `_prepare_amount` (por defecto devuelve el mismo monto).
+    4. Paso abstracto `_call_gateway`. Si el SDK lanza una excepción, se registra con `logging` y se
+       devuelve un rechazo en lugar de propagarla.
+    5. Pasos abstractos `_is_approved` y `_transaction_id`.
+    6. Ganchos `_success_message` y `_failure_message`.
+    7. Construcción del `PaymentResult` (`_result`).
+  - Subclases: `StripePaymentAdapter` (sobrescribe `_prepare_amount` para cobrar en centavos con
+    `round`, y `_failure_message`) y `WompiPaymentAdapter` (arma la referencia `REF-LMS-<usuario>`
+    dentro de `_call_gateway`, y sobrescribe `_failure_message`). Ninguna sobrescribe `process_payment`.
+  - Siguen siendo Adapters de `StripeSDK` y `WompiSDK` (simulados): Template Method y Adapter conviven.
+- **Endpoint**: `POST /payments/process`. Un rechazo de la pasarela, incluido un fallo del SDK, llega
+  al caso de uso como `PaymentResult(success=False)`, que lanza `PaymentRejectedError` → HTTP 400.
+  Por HTTP, un monto ≤ 0 lo rechaza antes el DTO (`PaymentRequestDTO.amount = Field(gt=0, ...)` → 422);
+  la validación del método plantilla protege a cualquier otro cliente del puerto.
+- **Pruebas**: `test_template_method.py` (16 casos con la parametrización). Cubren: clase abstracta,
+  ninguna subclase sobrescribe `process_payment`, pasarela falsa nueva solo con pasos, mensaje de
+  rechazo por defecto, monto inválido (`0`, `-10.0`, `None`, `nan`, `inf`) no llama al SDK, fallo del
+  SDK = rechazo sin exponer el detalle interno, respuesta malformada del SDK = rechazo, gancho de
+  centavos de Stripe, y por API: SDK que lanza excepción → 400 (no 500) sin inscripción, monto ≤ 0 →
+  422 del DTO sin llamar al SDK. Las pruebas del Adapter siguen en `test_payments.py`.
+- **Swagger**: como `estudiante@lms.demo`, `POST /payments/process` con el curso premium del seed
+  (`amount: 49.9`) y `gateway: "stripe"` o `"wompi"`. La respuesta tiene la misma forma con ambas
+  pasarelas (`status`, `transaction_id`, `currency` en mayúsculas, `message`) porque sale del mismo
+  método plantilla; solo cambian el prefijo del `transaction_id` y el mensaje. El fallo del SDK no se
+  puede provocar por HTTP (los SDK simulados siempre aprueban); se demuestra con las pruebas.
+- **Frontend**: `/patterns`, tarjeta *Template Method*: muestra los pasos del esqueleto (fijo, gancho,
+  abstracto) y "Ver pagos procesados" lista `GET /payments/me` (pasarela, estado y mensaje que construye
+  el método plantilla). No ejecuta un cobro de demostración, porque inscribiría al usuario en un curso.
+- **Por qué se implementó**: el esqueleto de cobro vive en un solo lugar, y las reglas comunes
+  (validación del monto, moneda, manejo de errores del SDK) se aplican a todas las pasarelas.
+- **Para qué sirve**: agregar una pasarela = implementar 3 pasos (`_call_gateway`, `_is_approved`,
+  `_transaction_id`) y, si hace falta, los ganchos.
+- **Diagramas**: [`uml/template-method.md`](uml/template-method.md). Decisión:
+  [ADR 0009](adr/0009-template-method-en-pasarelas-de-pago.md).
+
+### Alternativas analizadas y no implementadas
+
+- **Segundo Strategy: política de calificación en evaluaciones.** No se agregó. Los requisitos solo
+  piden calificación automática con una única regla (porcentaje ≥ `passing_score`). Hoy no hay
+  variación real, y agregarlo sería diseño especulativo (YAGNI). Si se piden políticas como "mejor
+  intento", "promedio" o "penalización", el punto de extensión es `Assessment._grade_and_record`
+  en `app/modules/assessments/domain/models.py`. La selección de pasarela por diccionario en
+  `app/modules/payments/application/use_cases.py` (`default_gateways()`) es Adapter, no un Strategy nuevo.
+- **Template Method en los observadores.** `AutoEnrollOnPaymentObserver`, `CertificateIssuerObserver`
+  y `RecommendationProfileObserver` repiten la guarda del tipo de evento y la validación de
+  `user_id`/`course_id`. No se hizo: la duplicación es de 2 o 3 líneas por clase, cada observador ya
+  tiene una sola responsabilidad y una jerarquía base añadiría acoplamiento sin beneficio claro.
+  Queda como posible mejora.
+
 ---
 
 ## Fe de erratas respecto a la entrega anterior
@@ -335,4 +437,4 @@ modifica**; esta sección lo corrige. Los textos citados se extrajeron de `word/
 ### Omisiones
 
 - El Word no menciona **State** ni **Visitor**. Ambos están implementados (ver secciones anteriores).
-- El Word habla de "seis patrones implementados" en su tabla de lectura; hoy hay 15 (más Strategy en recomendaciones).
+- El Word habla de "seis patrones implementados" en su tabla de lectura; hoy hay 17: los 15 pedidos más Strategy (recomendaciones) y Template Method (pasarelas de pago).

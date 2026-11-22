@@ -7,12 +7,14 @@ import { Empty, ErrorState, Loading, Notice } from "../../components/Status";
 import {
     IconActivity,
     IconBell,
+    IconCard,
     IconChart,
     IconClipboard,
     IconCopy,
     IconLayers,
     IconLock,
     IconPlay,
+    IconSparkle,
     IconStar
 } from "../../components/icons";
 import { useAuth } from "../../context/auth-context";
@@ -37,6 +39,8 @@ import {
 import { getMyNotifications } from "../../services/notificationService";
 import { getAuditLog, getHealth } from "../../services/adminService";
 import { getMyProgress } from "../../services/progressService";
+import { getMyRecommendations, RULE_LABELS } from "../../services/recommendationService";
+import { getMyPayments } from "../../services/paymentService";
 import { getErrorMessage, getErrorStatus } from "../../services/errors";
 
 const CONTENT_TYPES = ["video", "quiz", "document"];
@@ -89,6 +93,24 @@ const StepLog = ({ steps }) => (
     </ol>
 );
 
+// Esqueleto fijo de TemplatePaymentAdapter.process_payment (backend).
+const TEMPLATE_STEPS = [
+    { step: "Validar monto (> 0 y finito)", kind: "fijo" },
+    { step: "Normalizar moneda a mayúsculas", kind: "fijo" },
+    { step: "_prepare_amount (Stripe: centavos)", kind: "gancho" },
+    { step: "_call_gateway (llamada al SDK)", kind: "abstracto" },
+    { step: "_is_approved y _transaction_id", kind: "abstracto" },
+    { step: "Error del SDK → rechazo, no HTTP 500", kind: "fijo" },
+    { step: "_success_message / _failure_message", kind: "gancho" },
+    { step: "Construir PaymentResult", kind: "fijo" },
+];
+
+const STEP_BADGE = {
+    fijo: "badge-success",
+    gancho: "badge-category-structural",
+    abstracto: "badge-category-behavioral",
+};
+
 const CATEGORY = {
     creational: "Creacional",
     structural: "Estructural",
@@ -133,6 +155,12 @@ export default function PatternLab() {
 
     // Visitor
     const [visitor, setVisitor] = useState(null);
+
+    // Strategy
+    const [strategy, setStrategy] = useState(null);
+
+    // Template Method
+    const [payments, setPayments] = useState(null);
 
     // Instructor: solo sus cursos (el backend exige ser dueño). Admin: todos.
     const myCourses = (data?.courses || []).filter(
@@ -288,6 +316,33 @@ export default function PatternLab() {
                 setVisitor({ summary, progress });
             } catch (err) {
                 setVisitor({ error: getErrorMessage(err, "No se pudo calcular el resumen.") });
+            }
+        });
+
+    // Strategy: el motor combina reglas intercambiables; se agrupa por regla.
+    const runStrategyDemo = () =>
+        withBusy("strategy", async () => {
+            setStrategy(null);
+            try {
+                const items = await getMyRecommendations();
+                const byRule = {};
+                items.forEach((item) => {
+                    (byRule[item.rule] ||= []).push(item);
+                });
+                setStrategy({ total: items.length, byRule });
+            } catch (err) {
+                setStrategy({ error: getErrorMessage(err, "No se pudieron calcular las recomendaciones.") });
+            }
+        });
+
+    // Template Method: resultados reales producidos por el método plantilla.
+    const runTemplateDemo = () =>
+        withBusy("template", async () => {
+            setPayments(null);
+            try {
+                setPayments({ items: await getMyPayments() });
+            } catch (err) {
+                setPayments({ error: getErrorMessage(err, "No se pudo cargar el historial de pagos.") });
             }
         });
 
@@ -525,6 +580,132 @@ export default function PatternLab() {
                                 <pre className="code-block">
                                     {visitor.summary.syllabus_markdown}
                                 </pre>
+                            )}
+                        </div>
+                    )}
+                </PatternCard>
+
+                <PatternCard name="Strategy" category="behavioral" icon={IconSparkle}>
+                    <p className="muted">
+                        El motor de recomendaciones combina reglas intercambiables
+                        (refuerzo, siguiente nivel, afinidad, gratis para empezar,
+                        popular). Cada recomendación indica qué estrategia la generó;
+                        si dos reglas sugieren el mismo curso, gana el mayor puntaje.
+                    </p>
+
+                    <div>
+                        <button
+                            type="button"
+                            className={`btn btn-primary btn-sm${busy === "strategy" ? " is-loading" : ""}`}
+                            disabled={busy !== ""}
+                            aria-busy={busy === "strategy"}
+                            onClick={runStrategyDemo}
+                        >
+                            <IconPlay size={16} />
+                            Calcular recomendaciones
+                        </button>
+                    </div>
+
+                    {strategy?.error && (
+                        <Notice notice={{ type: "error", text: strategy.error }} />
+                    )}
+
+                    {strategy && !strategy.error && (
+                        <div className="lab-result">
+                            {strategy.total === 0 ? (
+                                <p className="muted">
+                                    Ninguna regla produjo sugerencias (se excluyen tus
+                                    cursos propios y en los que ya estás inscrito).
+                                </p>
+                            ) : (
+                                <ul className="lab-log">
+                                    {Object.entries(strategy.byRule).map(([rule, items]) => (
+                                        <li className="ok" key={rule}>
+                                            <strong>{RULE_LABELS[rule] || rule}</strong>
+                                            <span className="badge">{rule}</span>
+                                            {items.map((item) => (
+                                                <span className="muted" key={item.course_id}>
+                                                    {item.title} · puntaje {item.score} · {item.reason}
+                                                </span>
+                                            ))}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+                </PatternCard>
+
+                <PatternCard name="Template Method" category="behavioral" icon={IconCard}>
+                    <p className="muted">
+                        Todas las pasarelas (Stripe, Wompi) siguen el mismo algoritmo
+                        de cobro, definido una sola vez en{" "}
+                        <code>TemplatePaymentAdapter.process_payment</code>. Cada
+                        pasarela solo implementa los pasos abstractos y, si quiere,
+                        los ganchos.
+                    </p>
+
+                    <ol className="lab-log">
+                        {TEMPLATE_STEPS.map(({ step, kind }, index) => (
+                            <li className="ok" key={step}>
+                                <strong>{index + 1}. {step}</strong>
+                                <span className={`badge ${STEP_BADGE[kind]}`}>{kind}</span>
+                            </li>
+                        ))}
+                    </ol>
+
+                    <div>
+                        <button
+                            type="button"
+                            className={`btn btn-primary btn-sm${busy === "template" ? " is-loading" : ""}`}
+                            disabled={busy !== ""}
+                            aria-busy={busy === "template"}
+                            onClick={runTemplateDemo}
+                        >
+                            <IconPlay size={16} />
+                            Ver pagos procesados
+                        </button>
+                    </div>
+
+                    {payments?.error && (
+                        <Notice notice={{ type: "error", text: payments.error }} />
+                    )}
+
+                    {payments && !payments.error && (
+                        <div className="lab-result">
+                            {payments.items.length === 0 ? (
+                                <p className="muted">
+                                    Aún no tienes pagos. Inicia sesión como estudiante y
+                                    paga un curso desde el catálogo: el resultado lo
+                                    construye el método plantilla.
+                                </p>
+                            ) : (
+                                <div className="table-wrap">
+                                    <table className="users-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Pasarela</th>
+                                                <th>Estado</th>
+                                                <th>Monto</th>
+                                                <th>Mensaje</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {payments.items.map((p) => (
+                                                <tr key={p.payment_id}>
+                                                    <td><code>{p.gateway}</code></td>
+                                                    <td>
+                                                        <span className={`badge ${p.status === "approved" ? "badge-success" : "badge-error"}`}>
+                                                            {p.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>{p.amount} {p.currency}</td>
+                                                    <td>{p.message}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
                         </div>
                     )}

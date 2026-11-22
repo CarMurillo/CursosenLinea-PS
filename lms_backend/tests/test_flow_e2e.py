@@ -194,10 +194,14 @@ def test_seed_crea_la_demo_y_es_idempotente(client):
     assert second["premium_course_id"] == first["premium_course_id"]
     assert second["free_course_id"] == first["free_course_id"]
     assert second["assessment_id"] is None            # no duplica evaluación/clase
-    assert len(client.get("/courses/").json()) == 2
+    assert second["course_ids"] == first["course_ids"]
+    assert len(client.get("/courses/").json()) == 6
+    # La segunda ejecución no emite certificados nuevos.
+    assert second["certificates"] == first["certificates"]
 
     # Las cuentas demo funcionan con la contraseña documentada.
-    for email in (seed.ADMIN["email"], seed.INSTRUCTOR["email"], seed.STUDENT["email"]):
+    for email in (seed.ADMIN["email"], seed.INSTRUCTOR["email"], seed.INSTRUCTOR_2["email"],
+                  *first["students"]):
         r = client.post("/auth/login", json={"email": email, "password": seed.DEMO_PASSWORD})
         assert r.status_code == 200, email
 
@@ -209,3 +213,69 @@ def test_seed_crea_la_demo_y_es_idempotente(client):
     assert progress["completed_lessons"] == 1
     recs = client.get("/recommendations/me", headers=alum).json()
     assert recs[0]["course_id"] == pid                # afinidad con el curso gratuito
+
+
+def _seed_headers(client, email):
+    r = client.post("/auth/login", json={"email": email, "password": seed.DEMO_PASSWORD})
+    assert r.status_code == 200, email
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+def test_seed_deja_la_demo_lista_para_presentar(client):
+    """Cada escenario del seed queda visible por API (lo que se verá en la demo)."""
+    session_factory = lambda: next(app.dependency_overrides[get_db]())  # noqa: E731
+    out = seed.run_seed(_test_client_requester(client),
+                        create_admin=lambda: seed.ensure_admin(session_factory),
+                        log=lambda _msg: None)
+    ids = out["course_ids"]
+
+    # Certificados: Carlos 1, Valentina 2; Sofía, Lucía y Mateo ninguno.
+    assert out["certificates"] == {
+        seed.STUDENT["email"]: 0, seed.CARLOS["email"]: 1, seed.VALENTINA["email"]: 2,
+        seed.LUCIA["email"]: 0, seed.MATEO["email"]: 0,
+    }
+    carlos = _seed_headers(client, seed.CARLOS["email"])
+    cert = client.get("/certificates/me", headers=carlos).json()[0]
+    code = cert.get("code") or cert.get("verification_code")
+    if code:
+        assert client.get(f"/certificates/verify/{code}").status_code == 200
+
+    # Pagos con ambas pasarelas (Adapter + Template Method) y auto-inscripción (Observer).
+    pay_carlos = client.get("/payments/me", headers=carlos).json()
+    assert [(p["gateway"], p["status"]) for p in pay_carlos] == [("stripe", "approved")]
+    valentina = _seed_headers(client, seed.VALENTINA["email"])
+    assert client.get("/payments/me", headers=valentina).json()[0]["gateway"] == "wompi"
+    enrolled = {c["id"] for c in client.get("/courses/me/enrolled", headers=carlos).json()}
+    assert {ids["arquitectura"], ids["python"], ids["sql"]} <= enrolled
+
+    # Progreso (Visitor): Carlos completó Arquitectura.
+    prog = client.get(f"/courses/{ids['arquitectura']}/progress/me", headers=carlos).json()
+    assert prog["completed_lessons"] == prog["total_lessons"] == 3
+
+    # Notificaciones (Observer): pago, inscripción, nota y certificado.
+    kinds = {n["event_type"] for n in
+             client.get("/notifications/me", headers=carlos).json()}
+    assert {"payment_approved", "student_enrolled", "assessment_graded",
+            "certificate_issued"} <= kinds
+
+    # Strategy: cada estudiante recibe recomendaciones de reglas distintas.
+    lucia = _seed_headers(client, seed.LUCIA["email"])
+    rules_lucia = {r["rule"] for r in client.get("/recommendations/me", headers=lucia).json()}
+    assert "refuerzo" in rules_lucia
+    mateo = _seed_headers(client, seed.MATEO["email"])
+    rules_mateo = {r["rule"] for r in client.get("/recommendations/me", headers=mateo).json()}
+    assert "gratis_para_empezar" in rules_mateo
+    rules_vale = {r["rule"] for r in client.get("/recommendations/me", headers=valentina).json()}
+    assert "siguiente_nivel" in rules_vale
+
+    # Sofía queda lista para pagar el premium en vivo durante la demo.
+    sofia = _seed_headers(client, seed.STUDENT["email"])
+    sofia_courses = {c["id"] for c in client.get("/courses/me/enrolled", headers=sofia).json()}
+    assert ids["python"] in sofia_courses and ids["arquitectura"] not in sofia_courses
+
+    # State para la demo en vivo: evaluación en borrador y clase programada.
+    laura = _seed_headers(client, seed.INSTRUCTOR_2["email"])
+    draft = client.get(f"/assessments/{out['ml_draft_assessment_id']}", headers=laura).json()
+    assert draft["state"] == "draft"
+    started = client.post(f"/live-sessions/{out['ml_live_session_id']}/start", headers=laura)
+    assert started.status_code == 200

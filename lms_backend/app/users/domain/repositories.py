@@ -42,3 +42,11 @@ class UserRepository(ABC):
     @abstractmethod
     def get_all(self) -> List[UserRecord]:
         pass
+
+    @abstractmethod
+    def set_active(self, user_id: str, is_active: bool) -> Optional[UserRecord]:
+        """Suspende (False) o reactiva (True). None si el usuario no existe."""
+
+    @abstractmethod
+    def delete(self, user_id: str) -> bool:
+        """Elimina el usuario. True si existía."""

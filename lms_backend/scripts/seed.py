@@ -1,4 +1,4 @@
-"""Datos de demostración del LMS (para la demo del parcial).
+"""Datos de demostración del LMS (para la presentación).
 
 POR QUÉ ES UN CLIENTE HTTP: cursos, pagos, evaluaciones, clases y progreso
 viven en repositorios EN MEMORIA dentro del proceso de uvicorn. Un script que
@@ -17,21 +17,31 @@ Uso (desde lms_backend/, con el servidor arriba):
     ./venv/Scripts/python scripts/seed.py --base-url http://127.0.0.1:8000
 
 Idempotente: los usuarios se reutilizan si ya existen (BD persistente); los
-cursos se reutilizan si el instructor ya tiene uno con el mismo título. Al
-REINICIAR uvicorn se pierden los datos en memoria (no los usuarios): vuelve a
-ejecutar el seed para reconstruir la demo.
+cursos se reutilizan si el instructor ya tiene uno con el mismo título. Las
+evaluaciones, clases y la actividad de los estudiantes (pagos, lecciones,
+intentos) de un curso solo se crean cuando ese curso se crea en esta
+ejecución, así que correrlo dos veces no duplica nada. Al REINICIAR uvicorn
+se pierden los datos en memoria (no los usuarios): vuelve a ejecutar el seed.
 
 Cuentas de demo (contraseña común: Demo12345):
-    admin@lms.demo       admin
-    instructor@lms.demo  instructor
-    estudiante@lms.demo  student
+    admin@lms.demo        admin
+    instructor@lms.demo   instructor  (Iván: 3 cursos)
+    laura@lms.demo        instructor  (Laura: 3 cursos)
+    estudiante@lms.demo   student     Sofía: inscrita en Python con 1 lección.
+                                      NO está inscrita en el premium: en la
+                                      demo paga, rinde y obtiene certificado.
+    carlos@lms.demo       student     Pagó Arquitectura (Stripe), completó
+                                      todo, aprobó -> certificado.
+    valentina@lms.demo    student     Pagó Arquitectura (Wompi) y cursó
+                                      Ciencia de Datos -> 2 certificados.
+    lucia@lms.demo        student     Pagó Diseño de APIs (Wompi) y reprobó
+                                      -> recomendaciones de "refuerzo".
+    mateo@lms.demo        student     Sin cursos -> "gratis para empezar".
 
-Crea: curso gratuito "Fundamentos de Python" (2 módulos, 3 lecciones con
-duración, estudiante inscrito con 1 lección completada) y curso premium con
-certificado "Arquitectura de Software con Patrones" (precio 49.9, 3 lecciones,
-evaluación publicada de 2 preguntas y una clase en vivo ya grabada). El
-estudiante NO queda inscrito en el premium: en la demo paga (Stripe/Wompi),
-se inscribe automáticamente, completa lecciones, rinde y obtiene certificado.
+Patrones que quedan visibles: Adapter + Template Method (pagos Stripe/Wompi),
+Observer (auto-inscripción, notificaciones, auditoría, certificados), State
+(evaluaciones publicada/borrador, clases grabada/programada), Visitor
+(progreso y resumen), Strategy (recomendaciones distintas por estudiante).
 """
 
 import argparse
@@ -40,24 +50,46 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 DEMO_PASSWORD = "Demo12345"
+
+# ----------------------------------------------------------------- usuarios
 ADMIN = {"first_name": "Ada", "last_name": "Admin", "email": "admin@lms.demo"}
 INSTRUCTOR = {"first_name": "Iván", "last_name": "Instructor",
               "email": "instructor@lms.demo", "role": "instructor",
               "specialization": "Arquitectura de software"}
+INSTRUCTOR_2 = {"first_name": "Laura", "last_name": "Datos",
+                "email": "laura@lms.demo", "role": "instructor",
+                "specialization": "Ciencia de datos"}
 STUDENT = {"first_name": "Sofía", "last_name": "Estudiante",
            "email": "estudiante@lms.demo", "role": "student"}
+CARLOS = {"first_name": "Carlos", "last_name": "Certificado",
+          "email": "carlos@lms.demo", "role": "student"}
+VALENTINA = {"first_name": "Valentina", "last_name": "Destacada",
+             "email": "valentina@lms.demo", "role": "student"}
+LUCIA = {"first_name": "Lucía", "last_name": "Refuerzo",
+         "email": "lucia@lms.demo", "role": "student"}
+MATEO = {"first_name": "Mateo", "last_name": "Nuevo",
+         "email": "mateo@lms.demo", "role": "student"}
 
+# ------------------------------------------------------------------ cursos
 FREE_COURSE = {"title": "Fundamentos de Python", "price": 0, "course_type": "video"}
 PREMIUM_COURSE = {"title": "Arquitectura de Software con Patrones", "price": 49.9,
                   "course_type": "video", "premium": True, "certificate": True}
+API_COURSE = {"title": "Diseño de APIs con FastAPI", "price": 39.9,
+              "course_type": "video", "premium": True, "certificate": True}
+DATA_COURSE = {"title": "Introducción a Ciencia de Datos", "price": 0,
+               "course_type": "video", "certificate": True}
+ML_COURSE = {"title": "Machine Learning en Vivo", "price": 59.9,
+             "course_type": "live", "premium": True, "certificate": True}
+SQL_COURSE = {"title": "SQL para Análisis de Datos", "price": 0, "course_type": "video"}
 
 FREE_LESSONS = [
     ("Introducción", "Instalación y primer programa", "video", "vimeo", 12),
@@ -69,6 +101,29 @@ PREMIUM_LESSONS = [
     ("Patrones de comportamiento", "State en evaluaciones", "video", "s3", 20),
     ("Patrones estructurales", "Visitor sobre Composite", "quiz", "vimeo", 15),
 ]
+API_LESSONS = [
+    ("Fundamentos", "Rutas y validación con Pydantic", "video", "vimeo", 22),
+    ("Fundamentos", "Dependencias e inyección", "video", "s3", 18),
+    ("Seguridad", "Autenticación con JWT", "video", "vimeo", 25),
+    ("Seguridad", "Quiz de seguridad", "quiz", "s3", 10),
+]
+DATA_LESSONS = [
+    ("Bases", "¿Qué es la ciencia de datos?", "video", "vimeo", 15),
+    ("Bases", "Pandas en 20 minutos", "video", "s3", 20),
+    ("Práctica", "Quiz de pandas", "quiz", "vimeo", 10),
+]
+ML_LESSONS = [
+    ("Teoría", "Regresión lineal", "video", "vimeo", 30),
+    ("Teoría", "Árboles de decisión", "video", "s3", 30),
+    ("Práctica", "Quiz de modelos", "quiz", "vimeo", 15),
+]
+SQL_LESSONS = [
+    ("Consultas", "SELECT, WHERE y ORDER BY", "video", "vimeo", 14),
+    ("Consultas", "JOIN entre tablas", "video", "s3", 20),
+    ("Agregaciones", "GROUP BY y HAVING", "video", "vimeo", 16),
+]
+
+# ------------------------------------------------------------- evaluaciones
 ASSESSMENT = {"title": "Parcial de patrones", "description": "Observer, State y Visitor",
               "passing_score": 60, "max_attempts": 3}
 QUESTIONS = [
@@ -77,8 +132,40 @@ QUESTIONS = [
     {"text": "¿Qué patrón agrega operaciones a un Composite sin modificarlo?",
      "options": ["Visitor", "Adapter", "Proxy"], "correct_option": 0, "points": 5},
 ]
+API_ASSESSMENT = {"title": "Examen de APIs", "description": "Rutas, dependencias y JWT",
+                  "passing_score": 70, "max_attempts": 2}
+API_QUESTIONS = [
+    {"text": "¿Qué valida el cuerpo de una petición en FastAPI?",
+     "options": ["Pydantic", "Jinja", "SQLite"], "correct_option": 0, "points": 4},
+    {"text": "¿Qué código HTTP indica un recurso creado?",
+     "options": ["200", "201", "204"], "correct_option": 1, "points": 3},
+    {"text": "¿Dónde viaja normalmente un JWT?",
+     "options": ["En la URL", "En el header Authorization", "En una cookie de terceros"],
+     "correct_option": 1, "points": 3},
+]
+DATA_ASSESSMENT = {"title": "Evaluación de pandas", "description": "Conceptos básicos",
+                   "passing_score": 60, "max_attempts": 2}
+DATA_QUESTIONS = [
+    {"text": "¿Qué estructura de pandas representa una tabla?",
+     "options": ["Series", "DataFrame", "ndarray"], "correct_option": 1, "points": 5},
+    {"text": "¿Qué método muestra las primeras filas?",
+     "options": ["head()", "top()", "first()"], "correct_option": 0, "points": 5},
+]
+# Queda en BORRADOR a propósito: en la demo se publica en vivo (State).
+ML_DRAFT_ASSESSMENT = {"title": "Quiz de modelos (borrador)",
+                       "description": "Publícala en la demo para ver el patrón State",
+                       "passing_score": 60, "max_attempts": 1}
+ML_DRAFT_QUESTIONS = [
+    {"text": "¿Qué modelo predice un valor continuo?",
+     "options": ["Regresión lineal", "K-means", "Apriori"], "correct_option": 0, "points": 5},
+]
+
+# ---------------------------------------------------------- clases en vivo
 LIVE_SESSION = {"title": "Clase en vivo: patrones en la práctica",
                 "duration_minutes": 60}
+# Queda PROGRAMADA a propósito: en la demo se inicia y termina (State).
+ML_LIVE_SESSION = {"title": "Sesión en vivo: entrenando tu primer modelo",
+                   "duration_minutes": 90}
 
 # request(method, path, body, token) -> (status_code, json_body)
 Requester = Callable[[str, str, Optional[dict], Optional[str]], Tuple[int, Any]]
@@ -149,7 +236,8 @@ def _login(request: Requester, user: dict) -> dict:
     body = _expect(request("POST", "/auth/login",
                            {"email": user["email"], "password": DEMO_PASSWORD}, None),
                    200, what=f"login {user['email']}")
-    return {"token": body["access_token"], "user_id": body["user"]["user_id"]}
+    return {"token": body["access_token"], "user_id": body["user"]["user_id"],
+            "email": user["email"]}
 
 
 def _ensure_course(request, inst, course, lessons, log):
@@ -170,38 +258,106 @@ def _ensure_course(request, inst, course, lessons, log):
     return cid, True
 
 
+def _create_assessment(request, inst, course_id, spec, questions, *, publish=True):
+    """Crea la evaluación y devuelve (id, respuestas_correctas, respuestas_incorrectas)."""
+    a = _expect(request("POST", "/assessments", {**spec, "course_id": course_id},
+                        inst["token"]), 201, what=f"crear evaluación {spec['title']}")
+    aid = a["id"]
+    for q in questions:
+        _expect(request("POST", f"/assessments/{aid}/questions", q, inst["token"]),
+                201, what="pregunta")
+    if publish:
+        _expect(request("POST", f"/assessments/{aid}/publish", None, inst["token"]),
+                200, what=f"publicar {spec['title']}")
+    full = _expect(request("GET", f"/assessments/{aid}", None, inst["token"]), 200,
+                   what="leer evaluación")
+    correct = {q["question_id"]: q["correct_option"] for q in full["questions"]}
+    wrong = {q["question_id"]: (q["correct_option"] + 1) % len(q["options"])
+             for q in full["questions"]}
+    return aid, correct, wrong
+
+
+def _lesson_ids(request, student, course_id) -> List[str]:
+    summary = _expect(request("GET", f"/courses/{course_id}/content/summary", None,
+                              student["token"]), 200, what="resumen")
+    return [lesson["lesson_id"]
+            for module in summary["syllabus"] for lesson in module["lessons"]]
+
+
+def _complete_lessons(request, student, course_id, count=None) -> int:
+    ids = _lesson_ids(request, student, course_id)
+    ids = ids if count is None else ids[:count]
+    for lid in ids:
+        _expect(request("POST", f"/courses/{course_id}/lessons/{lid}/complete", None,
+                        student["token"]), 200, what="completar lección")
+    return len(ids)
+
+
+def _enroll_free(request, student, course_id):
+    _expect(request("POST", f"/courses/{course_id}/enroll", None, student["token"]),
+            200, 409, what="inscripción gratuita")
+
+
+def _course_price(request, course_id) -> float:
+    """Precio final publicado (ya incluye el recargo premium del Decorator)."""
+    courses = _expect(request("GET", "/courses/", None, None), 200, what="listar cursos")
+    return next(c["price"] for c in courses if c["id"] == course_id)
+
+
+def _pay(request, student, course_id, gateway):
+    """Pago aprobado -> el Observer inscribe automáticamente al estudiante."""
+    amount = _course_price(request, course_id)
+    _expect(request("POST", "/payments/process", {
+        "amount": amount, "currency": "USD", "gateway": gateway, "course_id": course_id,
+    }, student["token"]), 200, 409, what=f"pago {gateway} de {student['email']}")
+
+
+def _attempt(request, student, assessment_id, answers) -> dict:
+    return _expect(request("POST", f"/assessments/{assessment_id}/attempts",
+                           {"answers": answers}, student["token"]), 201,
+                   what=f"intento de {student['email']}")
+
+
+def _tomorrow_iso() -> str:
+    when = datetime.now(timezone.utc) + timedelta(days=1)
+    return when.replace(hour=15, minute=0, second=0, microsecond=0).isoformat()
+
+
 def run_seed(request: Requester, *, create_admin: Callable[[], bool] = ensure_admin,
              log: Callable[[str], None] = print) -> dict:
     admin_created = create_admin()
     log(("+ " if admin_created else "= ") + f"admin {ADMIN['email']}")
     inst = _login(request, INSTRUCTOR)
+    laura = _login(request, INSTRUCTOR_2)
     alum = _login(request, STUDENT)
-    log(f"= instructor {INSTRUCTOR['email']} / estudiante {STUDENT['email']}")
+    carlos = _login(request, CARLOS)
+    valentina = _login(request, VALENTINA)
+    lucia = _login(request, LUCIA)
+    mateo = _login(request, MATEO)
+    log(f"= instructores: {INSTRUCTOR['email']}, {INSTRUCTOR_2['email']}")
+    log("= estudiantes: " + ", ".join(
+        u["email"] for u in (STUDENT, CARLOS, VALENTINA, LUCIA, MATEO)))
 
-    free_id, _ = _ensure_course(request, inst, FREE_COURSE, FREE_LESSONS, log)
+    free_id, free_new = _ensure_course(request, inst, FREE_COURSE, FREE_LESSONS, log)
     premium_id, premium_new = _ensure_course(
         request, inst, PREMIUM_COURSE, PREMIUM_LESSONS, log)
+    api_id, api_new = _ensure_course(request, inst, API_COURSE, API_LESSONS, log)
+    data_id, data_new = _ensure_course(request, laura, DATA_COURSE, DATA_LESSONS, log)
+    ml_id, ml_new = _ensure_course(request, laura, ML_COURSE, ML_LESSONS, log)
+    sql_id, sql_new = _ensure_course(request, laura, SQL_COURSE, SQL_LESSONS, log)
 
-    # Estudiante inscrito en el gratuito con una lección completada.
-    _expect(request("POST", f"/courses/{free_id}/enroll", None, alum["token"]),
-            200, 409, what="inscripción gratuita")
-    summary = _expect(request("GET", f"/courses/{free_id}/content/summary", None,
-                              alum["token"]), 200, what="resumen")
-    first_lesson = summary["syllabus"][0]["lessons"][0]["lesson_id"]
-    _expect(request("POST", f"/courses/{free_id}/lessons/{first_lesson}/complete",
-                    None, alum["token"]), 200, what="completar lección")
+    # Sofía: inscrita en el gratuito con una lección completada (idempotente).
+    _enroll_free(request, alum, free_id)
+    _complete_lessons(request, alum, free_id, count=1)
 
     assessment_id = None
     session_id = None
+    certificates: Dict[str, int] = {}
+
+    # --- Arquitectura (premium): evaluación, clase grabada y 2 certificados.
     if premium_new:
-        a = _expect(request("POST", "/assessments", {**ASSESSMENT, "course_id": premium_id},
-                            inst["token"]), 201, what="crear evaluación")
-        assessment_id = a["id"]
-        for q in QUESTIONS:
-            _expect(request("POST", f"/assessments/{assessment_id}/questions", q,
-                            inst["token"]), 201, what="pregunta")
-        _expect(request("POST", f"/assessments/{assessment_id}/publish", None,
-                        inst["token"]), 200, what="publicar evaluación")
+        assessment_id, correct, _ = _create_assessment(
+            request, inst, premium_id, ASSESSMENT, QUESTIONS)
         log(f"+ evaluación publicada: {ASSESSMENT['title']} ({assessment_id})")
 
         s = _expect(request("POST", "/live-sessions", {**LIVE_SESSION, "course_id": premium_id},
@@ -213,16 +369,84 @@ def run_seed(request: Requester, *, create_admin: Callable[[], bool] = ensure_ad
                                 inst["token"]), 200, what="terminar clase")
         log(f"+ clase grabada: {ended['recording_url']}")
 
+        for student, gateway in ((carlos, "stripe"), (valentina, "wompi")):
+            _pay(request, student, premium_id, gateway)
+            _complete_lessons(request, student, premium_id)
+            result = _attempt(request, student, assessment_id, correct)
+            log(f"+ {student['email']}: pagó con {gateway}, completó el curso y "
+                f"sacó {result['percentage']}% -> certificado")
+
+    # --- Diseño de APIs (premium): Lucía paga, avanza y reprueba.
+    if api_new:
+        api_assessment, _, wrong = _create_assessment(
+            request, inst, api_id, API_ASSESSMENT, API_QUESTIONS)
+        log(f"+ evaluación publicada: {API_ASSESSMENT['title']} ({api_assessment})")
+        _pay(request, lucia, api_id, "wompi")
+        _complete_lessons(request, lucia, api_id, count=2)
+        result = _attempt(request, lucia, api_assessment, wrong)
+        log(f"+ {lucia['email']}: reprobó el examen de APIs ({result['percentage']}%) "
+            "-> recomendaciones de refuerzo")
+
+    # --- Ciencia de Datos (gratis, con certificado): Valentina lo aprueba.
+    if data_new:
+        data_assessment, correct, _ = _create_assessment(
+            request, laura, data_id, DATA_ASSESSMENT, DATA_QUESTIONS)
+        log(f"+ evaluación publicada: {DATA_ASSESSMENT['title']} ({data_assessment})")
+        _enroll_free(request, valentina, data_id)
+        _complete_lessons(request, valentina, data_id)
+        _attempt(request, valentina, data_assessment, correct)
+        log(f"+ {valentina['email']}: segundo certificado (Ciencia de Datos)")
+
+    # --- Machine Learning (en vivo): clase PROGRAMADA y evaluación en BORRADOR.
+    ml_session_id = None
+    ml_draft_id = None
+    if ml_new:
+        s = _expect(request("POST", "/live-sessions", {
+            **ML_LIVE_SESSION, "course_id": ml_id, "scheduled_at": _tomorrow_iso(),
+        }, laura["token"]), 201, what="programar clase de ML")
+        ml_session_id = s["id"]
+        log(f"+ clase programada para mañana: {ML_LIVE_SESSION['title']}")
+        ml_draft_id, _, _ = _create_assessment(
+            request, laura, ml_id, ML_DRAFT_ASSESSMENT, ML_DRAFT_QUESTIONS, publish=False)
+        log(f"+ evaluación en borrador: {ML_DRAFT_ASSESSMENT['title']}")
+
+    # --- SQL (gratis): más inscripciones para la regla "popular".
+    if sql_new:
+        _enroll_free(request, lucia, sql_id)
+        _complete_lessons(request, lucia, sql_id, count=1)
+        _enroll_free(request, carlos, sql_id)
+        log("+ Lucía y Carlos inscritos en SQL")
+
+    # Carlos también cursa Python (popularidad y afinidad).
+    if free_new:
+        _enroll_free(request, carlos, free_id)
+        _complete_lessons(request, carlos, free_id, count=2)
+
+    for student in (alum, carlos, valentina, lucia, mateo):
+        certs = _expect(request("GET", "/certificates/me", None, student["token"]), 200,
+                        what="certificados")
+        certificates[student["email"]] = len(certs)
+
     result = {
         "password": DEMO_PASSWORD,
         "admin": ADMIN["email"],
         "instructor": INSTRUCTOR["email"],
+        "instructor_2": INSTRUCTOR_2["email"],
         "student": STUDENT["email"],
+        "students": [u["email"] for u in (STUDENT, CARLOS, VALENTINA, LUCIA, MATEO)],
         "free_course_id": free_id,
         "premium_course_id": premium_id,
+        "course_ids": {
+            "python": free_id, "arquitectura": premium_id, "apis": api_id,
+            "datos": data_id, "ml": ml_id, "sql": sql_id,
+        },
         "assessment_id": assessment_id,
         "live_session_id": session_id,
+        "ml_live_session_id": ml_session_id,
+        "ml_draft_assessment_id": ml_draft_id,
+        "certificates": certificates,
     }
+    log("Certificados: " + ", ".join(f"{k}={v}" for k, v in certificates.items()))
     log("Listo. Contraseña de las cuentas demo: " + DEMO_PASSWORD)
     return result
 

@@ -4,16 +4,8 @@ import Layout from "../../components/Layout";
 import { Empty, ErrorState, Loading } from "../../components/Status";
 import { IconArrowRight, IconAward, IconSparkle, IconStar } from "../../components/icons";
 import { useResource } from "../../hooks/useResource";
-import { getMyRecommendations } from "../../services/recommendationService";
+import { getMyRecommendations, RULE_LABELS } from "../../services/recommendationService";
 import { COURSE_KIND_LABEL, courseKind, formatPrice } from "../../utils/format";
-
-const RULE_LABELS = {
-    refuerzo: "Refuerzo",
-    siguiente_nivel: "Siguiente nivel",
-    afinidad: "Afinidad",
-    gratis_para_empezar: "Gratis para empezar",
-    popular: "Popular",
-};
 
 // Recomendaciones por reglas: cada una explica su motivo (`reason`).
 const StudentRecommendations = () => {

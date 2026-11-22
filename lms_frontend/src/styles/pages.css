@@ -958,3 +958,41 @@
 .illu-accent-soft {
     fill: var(--primary-300);
 }
+
+/* --- Administración de usuarios --- */
+button.tab {
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+}
+
+button.tab.active {
+    border-bottom-color: var(--color-primary);
+}
+
+.admin-register .form-actions,
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+.row-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.user-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.admin-back {
+    display: flex;
+}
